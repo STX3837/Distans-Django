@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   db:
@@ -11,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     restart: on-failure
 
   web:
