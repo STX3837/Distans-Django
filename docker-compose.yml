@@ -4,9 +4,9 @@ services:
     image: postgis/postgis:15-3.4
     container_name: postgis_db
     environment:
-      - POSTGRES_DB=mi_base_datos
-      - POSTGRES_USER=mi_usuario
-      - POSTGRES_PASSWORD=mi_contrasena
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -26,9 +26,9 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_NAME=mi_base_datos
-      - DB_USER=mi_usuario
-      - DB_PASSWORD=mi_contrasena
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
 
 volumes:
   postgres_data:
