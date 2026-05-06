@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: postgis_db
+    environment:
+      - POSTGRES_DB=mi_base_datos
+      - POSTGRES_USER=mi_usuario
+      - POSTGRES_PASSWORD=mi_contrasena
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: on-failure
+
+  web:
+    build: .
+    container_name: django_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=mi_base_datos
+      - DB_USER=mi_usuario
+      - DB_PASSWORD=mi_contrasena
+
+volumes:
+  postgres_data:
