@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Cuenta - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 70px);
+        padding: 40px 20px;
+    }
+
+    .account-container {
+        background-color: #c8f7d8;
+        padding: 40px;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 600px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 30px;
+        letter-spacing: 2px;
+        color: #333;
+    }
+
+    button {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .messages {
+        background-color: #c8e6c9;
+        border: 1px solid #4caf50;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+        color: #2e7d32;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="account-container">
+        <h1>Mi Cuenta</h1>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="form-field-error">
+                    <ul class="errorlist">
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.nombre.id_for_label }}">Nombre</label>
+                <input
+                    type="text"
+                    id="{{ form.nombre.id_for_label }}"
+                    name="{{ form.nombre.name }}"
+                    value="{{ form.nombre.value|default:'' }}"
+                    required
+                >
+                {% if form.nombre.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.nombre.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.apellidos.id_for_label }}">Apellidos</label>
+                <input
+                    type="text"
+                    id="{{ form.apellidos.id_for_label }}"
+                    name="{{ form.apellidos.name }}"
+                    value="{{ form.apellidos.value|default:'' }}"
+                    required
+                >
+                {% if form.apellidos.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.apellidos.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">Correo Electrónico</label>
+                <input
+                    type="email"
+                    id="{{ form.email.id_for_label }}"
+                    name="{{ form.email.name }}"
+                    value="{{ form.email.value|default:'' }}"
+                    required
+                >
+                {% if form.email.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.email.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.telefono.id_for_label }}">Teléfono</label>
+                <input
+                    type="text"
+                    id="{{ form.telefono.id_for_label }}"
+                    name="{{ form.telefono.name }}"
+                    value="{{ form.telefono.value|default:'' }}"
+                >
+                {% if form.telefono.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.telefono.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.direccion.id_for_label }}">Dirección</label>
+                <input
+                    type="text"
+                    id="{{ form.direccion.id_for_label }}"
+                    name="{{ form.direccion.name }}"
+                    value="{{ form.direccion.value|default:'' }}"
+                >
+                {% if form.direccion.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.direccion.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.ciudad.id_for_label }}">Ciudad</label>
+                <input
+                    type="text"
+                    id="{{ form.ciudad.id_for_label }}"
+                    name="{{ form.ciudad.name }}"
+                    value="{{ form.ciudad.value|default:'' }}"
+                >
+                {% if form.ciudad.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.ciudad.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.codigo_postal.id_for_label }}">Código Postal</label>
+                <input
+                    type="text"
+                    id="{{ form.codigo_postal.id_for_label }}"
+                    name="{{ form.codigo_postal.name }}"
+                    value="{{ form.codigo_postal.value|default:'' }}"
+                >
+                {% if form.codigo_postal.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.codigo_postal.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <button type="submit">Guardar Cambios</button>
+        </form>
+    </div>
+{% endblock %}

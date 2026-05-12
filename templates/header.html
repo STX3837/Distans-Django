@@ -1,0 +1,141 @@
+<header class="header">
+    <div class="header-container">
+        <div class="header-logo">
+            <span class="logo-icon">🌍</span>
+            <span class="logo-text">DISTANS</span>
+        </div>
+        
+        <nav class="header-nav">
+            {% if user.is_authenticated %}
+                <div class="user-menu">
+                    <span class="user-name">{{ user.nombre }} {{ user.apellidos }}</span>
+                    <a href="{% url 'account_detail' %}" class="nav-link">Mi Cuenta</a>
+                    {% if user.is_staff %}
+                        <a href="{% url 'admin_user_list' %}" class="nav-link">Gestión de Usuarios</a>
+                    {% endif %}
+                    <a href="{% url 'logout' %}" class="nav-link logout-link">Cerrar Sesión</a>
+                </div>
+            {% else %}
+                <div class="auth-buttons">
+                    <a href="{% url 'signup' %}" class="btn btn-primary">Registrarse</a>
+                    <a href="{% url 'login' %}" class="btn btn-secondary">Iniciar Sesión</a>
+                </div>
+            {% endif %}
+        </nav>
+    </div>
+</header>
+
+<style>
+    .header {
+        background-color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 30px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .header-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: #333;
+    }
+
+    .logo-icon {
+        font-size: 28px;
+    }
+
+    .logo-text {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+        letter-spacing: 2px;
+    }
+
+    .header-nav {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .auth-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: bold;
+        transition: all 0.3s;
+        display: inline-block;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background-color: #4caf50;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #45a049;
+    }
+
+    .btn-secondary {
+        background-color: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-secondary:hover {
+        background-color: #d0d0d0;
+    }
+
+    .user-menu {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .user-name {
+        font-weight: bold;
+        color: #333;
+        padding: 8px 12px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .nav-link {
+        color: #333;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        transition: all 0.3s;
+    }
+
+    .nav-link:hover {
+        background-color: #f0f0f0;
+    }
+
+    .logout-link {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+
+    .logout-link:hover {
+        background-color: #ffcdd2;
+    }
+</style>

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Cuenta - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 70px);
+        padding: 40px 20px;
+    }
+
+    .signup-container {
+        background-color: #c8f7d8;
+        padding: 40px;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 600px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 30px;
+        letter-spacing: 2px;
+        color: #333;
+    }
+
+    button {
+        width: 100%;
+    }
+
+    .login-link {
+        text-align: center;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="signup-container">
+        <h1>Crear Cuenta</h1>
+
+        {% if form.non_field_errors %}
+            <div class="form-field-error">
+                <ul class="errorlist">
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="{{ form.nombre.id_for_label }}">Nombre</label>
+                <input
+                    type="text"
+                    id="{{ form.nombre.id_for_label }}"
+                    name="{{ form.nombre.name }}"
+                    placeholder="Tu nombre"
+                    required
+                >
+                {% if form.nombre.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.nombre.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.apellidos.id_for_label }}">Apellidos</label>
+                <input
+                    type="text"
+                    id="{{ form.apellidos.id_for_label }}"
+                    name="{{ form.apellidos.name }}"
+                    placeholder="Tus apellidos"
+                    required
+                >
+                {% if form.apellidos.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.apellidos.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">Correo Electrónico</label>
+                <input
+                    type="email"
+                    id="{{ form.email.id_for_label }}"
+                    name="{{ form.email.name }}"
+                    placeholder="tu@email.com"
+                    required
+                >
+                {% if form.email.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.email.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.telefono.id_for_label }}">Teléfono (Opcional)</label>
+                <input
+                    type="text"
+                    id="{{ form.telefono.id_for_label }}"
+                    name="{{ form.telefono.name }}"
+                    placeholder="600123456"
+                >
+                {% if form.telefono.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.telefono.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.direccion.id_for_label }}">Dirección (Opcional)</label>
+                <input
+                    type="text"
+                    id="{{ form.direccion.id_for_label }}"
+                    name="{{ form.direccion.name }}"
+                    placeholder="Calle Mayor 123"
+                >
+                {% if form.direccion.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.direccion.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.ciudad.id_for_label }}">Ciudad (Opcional)</label>
+                <input
+                    type="text"
+                    id="{{ form.ciudad.id_for_label }}"
+                    name="{{ form.ciudad.name }}"
+                    placeholder="Madrid"
+                >
+                {% if form.ciudad.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.ciudad.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.codigo_postal.id_for_label }}">Código Postal (Opcional)</label>
+                <input
+                    type="text"
+                    id="{{ form.codigo_postal.id_for_label }}"
+                    name="{{ form.codigo_postal.name }}"
+                    placeholder="28001"
+                >
+                {% if form.codigo_postal.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.codigo_postal.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Rol</label>
+                <div style="margin-top: 10px;">
+                    {% for value, label in form.rol.field.choices %}
+                        <div style="margin-bottom: 10px;">
+                            <input
+                                type="radio"
+                                id="{{ form.rol.id_for_label }}_{{ forloop.counter }}"
+                                name="{{ form.rol.name }}"
+                                value="{{ value }}"
+                                {% if form.rol.value == value %}checked{% endif %}
+                                {% if forloop.first %}checked{% endif %}
+                            >
+                            <label for="{{ form.rol.id_for_label }}_{{ forloop.counter }}" style="display: inline; margin: 0; font-weight: normal;">{{ label }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if form.rol.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.rol.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.password1.id_for_label }}">Contraseña</label>
+                <input
+                    type="password"
+                    id="{{ form.password1.id_for_label }}"
+                    name="{{ form.password1.name }}"
+                    placeholder="••••••••"
+                    required
+                >
+                {% if form.password1.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.password1.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.password2.id_for_label }}">Repetir Contraseña</label>
+                <input
+                    type="password"
+                    id="{{ form.password2.id_for_label }}"
+                    name="{{ form.password2.name }}"
+                    placeholder="••••••••"
+                    required
+                >
+                {% if form.password2.errors %}
+                    <div class="form-field-error">
+                        <ul class="errorlist">
+                            {% for error in form.password2.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <button type="submit">Crear Cuenta</button>
+
+            <div class="login-link">
+                ¿Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesión aquí</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

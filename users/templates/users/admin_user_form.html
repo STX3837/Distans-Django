@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 70px);
+        padding: 40px 20px;
+    }
+
+    .admin-form-container {
+        background-color: #c8f7d8;
+        padding: 40px;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 600px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 30px;
+        letter-spacing: 2px;
+        color: #333;
+    }
+
+    button {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .form-actions {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .form-actions a {
+        flex: 1;
+        padding: 12px;
+        background-color: #e0e0e0;
+        color: #333;
+        text-decoration: none;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .form-actions a:hover {
+        background-color: #d0d0d0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="admin-form-container">
+        <h1>{{ title }}</h1>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="form-field-error">
+                    <ul class="errorlist">
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                {% if field.name != 'id' %}
+                    <div class="form-group">
+                        {{ field.label_tag }}
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            {{ field }}
+                        {% else %}
+                            <input
+                                type="{{ field.field.widget.input_type }}"
+                                id="{{ field.id_for_label }}"
+                                name="{{ field.name }}"
+                                value="{{ field.value|default:'' }}"
+                                {% if field.field.required %}required{% endif %}
+                                class="form-control"
+                            >
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="form-field-error">
+                                <ul class="errorlist">
+                                    {% for error in field.errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <button type="submit">Guardar</button>
+
+            <div class="form-actions">
+                <a href="{% url 'admin_user_list' %}">Volver</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

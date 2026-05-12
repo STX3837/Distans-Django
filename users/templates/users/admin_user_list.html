@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        padding: 40px 20px;
+    }
+
+    .admin-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    h1 {
+        margin-bottom: 30px;
+        color: #333;
+    }
+
+    .admin-actions {
+        margin-bottom: 20px;
+    }
+
+    .admin-actions a {
+        display: inline-block;
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-bottom: 20px;
+    }
+
+    .admin-actions a:hover {
+        background-color: #45a049;
+        text-decoration: none;
+    }
+
+    .messages {
+        background-color: #c8e6c9;
+        border: 1px solid #4caf50;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+        color: #2e7d32;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    thead {
+        background-color: #c8f7d8;
+    }
+
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+
+    .action-links {
+        display: flex;
+        gap: 10px;
+    }
+
+    .action-links a {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        text-decoration: none;
+    }
+
+    .edit-link {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    .edit-link:hover {
+        background-color: #1976D2;
+    }
+
+    .delete-link {
+        background-color: #f44336;
+        color: white;
+    }
+
+    .delete-link:hover {
+        background-color: #da190b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="admin-container">
+        <h1>Gestión de Usuarios</h1>
+
+        <div class="admin-actions">
+            <a href="{% url 'admin_user_create' %}">+ Crear Usuario</a>
+        </div>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Nombre</th>
+                    <th>Rol</th>
+                    <th>Activo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.get_full_name }}</td>
+                        <td>{{ user.get_rol_display }}</td>
+                        <td>
+                            {% if user.is_active %}
+                                <span style="color: #4caf50;">✓ Sí</span>
+                            {% else %}
+                                <span style="color: #f44336;">✗ No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-links">
+                                <a href="{% url 'admin_user_update' user.pk %}" class="edit-link">Editar</a>
+                                <a href="{% url 'admin_user_delete' user.pk %}" class="delete-link">Eliminar</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
