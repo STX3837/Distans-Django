@@ -52,6 +52,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.gis',
     'users',
+    'stores',
+    'products',
+    'carts',
+    'orders',
 ]
 
 MIDDLEWARE = [
@@ -143,5 +147,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/cuenta/'
+LOGIN_REDIRECT_URL = '/post-login/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'

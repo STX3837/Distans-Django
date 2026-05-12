@@ -28,6 +28,20 @@ def signup(request):
 
 
 @login_required
+def post_login_redirect(request):
+    if request.user.rol == User.Role.SELLER:
+        try:
+            return redirect('seller_home')
+        except Exception:
+            return redirect('account_detail')
+
+    if request.user.is_staff or request.user.rol == User.Role.ADMIN:
+        return redirect('admin_user_list')
+
+    return redirect('account_detail')
+
+
+@login_required
 def account_detail(request):
     if request.method == 'POST':
         form = AccountUpdateForm(request.POST, instance=request.user)
