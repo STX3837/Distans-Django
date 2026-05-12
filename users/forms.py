@@ -1,9 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import User
-
-User = get_user_model()
+UserModel = get_user_model()
 
 
 class SignUpForm(forms.ModelForm):
@@ -12,15 +10,15 @@ class SignUpForm(forms.ModelForm):
     rol = forms.ChoiceField(
         label='Rol',
         choices=[
-            (User.Role.BUYER, User.Role.BUYER),
-            (User.Role.SELLER, User.Role.SELLER),
+            (UserModel.Role.BUYER, UserModel.Role.BUYER.label),
+            (UserModel.Role.SELLER, UserModel.Role.SELLER.label),
         ],
-        initial=User.Role.BUYER,
+        initial=UserModel.Role.BUYER,
         widget=forms.RadioSelect,
     )
 
     class Meta:
-        model = User
+        model = UserModel
         fields = ['nombre', 'apellidos', 'email', 'telefono', 'direccion', 'ciudad', 'codigo_postal', 'rol']
 
     def clean(self):
@@ -46,16 +44,16 @@ class SignUpForm(forms.ModelForm):
 
 class AccountUpdateForm(forms.ModelForm):
     class Meta:
-        model = User
+        model = UserModel
         fields = ['nombre', 'apellidos', 'email', 'telefono', 'direccion', 'ciudad', 'codigo_postal']
 
 
 class AdminUserForm(forms.ModelForm):
-    password1 = forms.CharField(label='Password', required=False, widget=forms.PasswordInput)
-    password2 = forms.CharField(label='Repeat password', required=False, widget=forms.PasswordInput)
+    password1 = forms.CharField(label='Contraseña', required=False, widget=forms.PasswordInput)
+    password2 = forms.CharField(label='Repetir contraseña', required=False, widget=forms.PasswordInput)
 
     class Meta:
-        model = User
+        model = UserModel
         fields = [
             'nombre',
             'apellidos',
@@ -76,12 +74,12 @@ class AdminUserForm(forms.ModelForm):
         if self.instance.pk:
             if password1 or password2:
                 if password1 != password2:
-                    raise forms.ValidationError('Las contrasenas no coinciden.')
+                    raise forms.ValidationError('Las contraseñas no coinciden.')
         else:
             if not password1 or not password2:
-                raise forms.ValidationError('Debes indicar una contrasena para crear el usuario.')
+                raise forms.ValidationError('Debes indicar una contraseña para crear el usuario.')
             if password1 != password2:
-                raise forms.ValidationError('Las contrasenas no coinciden.')
+                raise forms.ValidationError('Las contraseñas no coinciden.')
 
         return cleaned_data
 

@@ -75,17 +75,32 @@
     <div class="delete-container">
         <h1>⚠ Eliminar Usuario</h1>
 
-        <div class="delete-message">
-            Vas a eliminar a <strong>{{ user_obj.get_full_name }}</strong> ({{ user_obj.email }}).<br>
-            Esta acción no se puede deshacer.
-        </div>
+        {% if can_delete %}
+            <div class="delete-message">
+                Vas a eliminar a <strong>{{ user_obj.get_full_name }}</strong> ({{ user_obj.email }}).<br>
+                Esta acción no se puede deshacer.
+            </div>
 
-        <div class="form-actions">
-            <form method="post" style="flex: 1;">
-                {% csrf_token %}
-                <button type="submit">Eliminar</button>
-            </form>
-            <a href="{% url 'admin_user_list' %}" class="cancel-button" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: white;">Cancelar</a>
-        </div>
+            <div class="form-actions">
+                <form method="post" style="flex: 1;">
+                    {% csrf_token %}
+                    <button type="submit">Eliminar</button>
+                </form>
+                <a href="{% url 'admin_user_list' %}" class="cancel-button" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: white;">Cancelar</a>
+            </div>
+        {% else %}
+            <div class="delete-message">
+                No puedes eliminar a <strong>{{ user_obj.get_full_name }}</strong> ({{ user_obj.email }}).
+                {% if user_obj.is_superuser %}
+                    Este usuario es un superusuario y debe conservarse para mantener el acceso administrativo.
+                {% else %}
+                    No está permitido eliminar tu propia cuenta desde esta pantalla.
+                {% endif %}
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'admin_user_list' %}" class="cancel-button" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: white;">Volver</a>
+            </div>
+        {% endif %}
     </div>
 {% endblock %}

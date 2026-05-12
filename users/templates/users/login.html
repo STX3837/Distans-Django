@@ -78,7 +78,7 @@
             background-color: #45a049;
         }
 
-        }
+        
 
         button {
             width: 100%;
@@ -115,6 +115,7 @@
                     type="email"
                     id="{{ form.username.id_for_label }}"
                     name="{{ form.username.name }}"
+                    value="{{ form.username.value|default_if_none:'' }}"
                     placeholder="tu@email.com"
                     required
                 >

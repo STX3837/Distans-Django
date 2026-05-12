@@ -66,6 +66,7 @@
                     type="text"
                     id="{{ form.nombre.id_for_label }}"
                     name="{{ form.nombre.name }}"
+                    value="{{ form.nombre.value|default_if_none:'' }}"
                     placeholder="Tu nombre"
                     required
                 >
@@ -86,6 +87,7 @@
                     type="text"
                     id="{{ form.apellidos.id_for_label }}"
                     name="{{ form.apellidos.name }}"
+                    value="{{ form.apellidos.value|default_if_none:'' }}"
                     placeholder="Tus apellidos"
                     required
                 >
@@ -106,6 +108,7 @@
                     type="email"
                     id="{{ form.email.id_for_label }}"
                     name="{{ form.email.name }}"
+                    value="{{ form.email.value|default_if_none:'' }}"
                     placeholder="tu@email.com"
                     required
                 >
@@ -126,6 +129,7 @@
                     type="text"
                     id="{{ form.telefono.id_for_label }}"
                     name="{{ form.telefono.name }}"
+                    value="{{ form.telefono.value|default_if_none:'' }}"
                     placeholder="600123456"
                 >
                 {% if form.telefono.errors %}
@@ -145,6 +149,7 @@
                     type="text"
                     id="{{ form.direccion.id_for_label }}"
                     name="{{ form.direccion.name }}"
+                    value="{{ form.direccion.value|default_if_none:'' }}"
                     placeholder="Calle Mayor 123"
                 >
                 {% if form.direccion.errors %}
@@ -164,6 +169,7 @@
                     type="text"
                     id="{{ form.ciudad.id_for_label }}"
                     name="{{ form.ciudad.name }}"
+                    value="{{ form.ciudad.value|default_if_none:'' }}"
                     placeholder="Madrid"
                 >
                 {% if form.ciudad.errors %}
@@ -183,6 +189,7 @@
                     type="text"
                     id="{{ form.codigo_postal.id_for_label }}"
                     name="{{ form.codigo_postal.name }}"
+                    value="{{ form.codigo_postal.value|default_if_none:'' }}"
                     placeholder="28001"
                 >
                 {% if form.codigo_postal.errors %}
@@ -207,7 +214,6 @@
                                 name="{{ form.rol.name }}"
                                 value="{{ value }}"
                                 {% if form.rol.value == value %}checked{% endif %}
-                                {% if forloop.first %}checked{% endif %}
                             >
                             <label for="{{ form.rol.id_for_label }}_{{ forloop.counter }}" style="display: inline; margin: 0; font-weight: normal;">{{ label }}</label>
                         </div>

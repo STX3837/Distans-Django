@@ -94,11 +94,24 @@ class AdminUserViewTests(TestCase):
             nombre='Admin',
             apellidos='User',
         )
+        self.staff_user = User.objects.create_user(
+            email='staff@example.com',
+            password='secret123',
+            nombre='Staff',
+            apellidos='User',
+            rol=User.Role.ADMIN,
+        )
         self.other_user = User.objects.create_user(
             email='comprador@example.com',
             password='secret123',
             nombre='Ana',
             apellidos='Perez',
+        )
+        self.second_admin = User.objects.create_superuser(
+            email='admin2@example.com',
+            password='secret123',
+            nombre='Second',
+            apellidos='Admin',
         )
 
     def test_admin_views_require_staff_access(self):
@@ -192,6 +205,32 @@ class AdminUserViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(User.objects.filter(pk=self.other_user.pk).exists())
 
+    def test_admin_cannot_delete_self(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.post(reverse('admin_user_delete', args=[self.staff_user.pk]), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(pk=self.staff_user.pk).exists())
+        self.assertContains(response, 'No puedes eliminar tu propia cuenta.')
+
+    def test_admin_delete_template_blocks_self_deletion(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse('admin_user_delete', args=[self.staff_user.pk]))
+
+        self.assertContains(response, 'No está permitido eliminar tu propia cuenta')
+        self.assertNotContains(response, '<button type="submit">Eliminar</button>', html=False)
+
+    def test_admin_cannot_delete_superuser(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('admin_user_delete', args=[self.second_admin.pk]), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(pk=self.second_admin.pk).exists())
+        self.assertContains(response, 'No se puede eliminar a un superusuario.')
+
     def test_admin_delete_template_renders_confirmation(self):
         self.client.force_login(self.admin)
 
@@ -199,6 +238,14 @@ class AdminUserViewTests(TestCase):
 
         self.assertContains(response, 'Eliminar Usuario')
         self.assertContains(response, self.other_user.email)
+
+    def test_admin_delete_template_blocks_superuser_deletion(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('admin_user_delete', args=[self.second_admin.pk]))
+
+        self.assertContains(response, 'Este usuario es un superusuario')
+        self.assertNotContains(response, '<button type="submit">Eliminar</button>', html=False)
 
 
 class UserFormTests(TestCase):
@@ -220,7 +267,7 @@ class UserFormTests(TestCase):
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn('Las contrasenas no coinciden.', form.non_field_errors())
+        self.assertIn('Las contraseñas no coinciden.', form.non_field_errors())
 
     def test_admin_user_form_requires_password_on_create(self):
         form = AdminUserForm(
@@ -240,7 +287,7 @@ class UserFormTests(TestCase):
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn('Debes indicar una contrasena para crear el usuario.', form.non_field_errors())
+        self.assertIn('Debes indicar una contraseña para crear el usuario.', form.non_field_errors())
 
     def test_admin_user_form_hashes_password_when_valid(self):
         form = AdminUserForm(

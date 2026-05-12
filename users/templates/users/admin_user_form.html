@@ -78,7 +78,7 @@
                 {% if field.name != 'id' %}
                     <div class="form-group">
                         {{ field.label_tag }}
-                        {% if field.field.widget.input_type == "checkbox" %}
+                        {% if field.field.widget.input_type == "checkbox" or field.field.widget.input_type == "radio" or not field.field.widget.input_type %}
                             {{ field }}
                         {% else %}
                             <input
