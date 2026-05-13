@@ -1,0 +1,135 @@
+{% load static %}
+
+<style>
+    .navbar {
+        background-color: #ffffff;
+        border-bottom: 2px solid #4caf50;
+        padding: 0;
+        margin: 0;
+    }
+
+    .navbar-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        padding: 0;
+    }
+
+    .navbar-item {
+        flex: 1;
+        padding: 0;
+        margin: 0;
+    }
+
+    .navbar-link {
+        display: block;
+        padding: 15px 20px;
+        text-align: center;
+        text-decoration: none;
+        color: #333;
+        font-weight: 500;
+        border-right: 1px solid #e0e0e0;
+        transition: all 0.3s;
+    }
+
+    .navbar-item:last-child .navbar-link {
+        border-right: none;
+    }
+
+    .navbar-link:hover {
+        background-color: #f0f8f5;
+        color: #4caf50;
+    }
+
+    .navbar-link.active {
+        background-color: #e8f5e9;
+        color: #4caf50;
+        border-bottom: 3px solid #4caf50;
+    }
+</style>
+
+<!-- Navbar para Compradores e Invitados -->
+{% if not user.is_authenticated or user.rol == 'comprador' %}
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-item">
+                <a href="{% url 'store_list' %}" class="navbar-link">
+                    🏪 Tiendas
+                </a>
+            </div>
+            <div class="navbar-item">
+                <a href="{% url 'catalog' %}" class="navbar-link">
+                    📦 Productos
+                </a>
+            </div>
+            <div class="navbar-item">
+                <a href="#" class="navbar-link" onclick="alert('Mapa - próximamente'); return false;">
+                    🗺️ Mapa
+                </a>
+            </div>
+        </div>
+    </nav>
+
+<!-- Navbar para Vendedores (cuando ven una tienda específica) -->
+{% elif user.rol == 'vendedor' and store %}
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-item">
+                <a href="{% url 'store_detail' store.pk %}" class="navbar-link">
+                    📦 Productos
+                </a>
+            </div>
+            <div class="navbar-item">
+                <a href="#" class="navbar-link" onclick="alert('Pedidos - próximamente'); return false;">
+                    📋 Pedidos
+                </a>
+            </div>
+            <div class="navbar-item">
+                <a href="{% url 'store_update' store.pk %}" class="navbar-link">
+                    ⚙️ Editar Información
+                </a>
+            </div>
+        </div>
+    </nav>
+
+<!-- Navbar para Admins (gestión general) -->
+{% elif user.is_staff or user.rol == 'admin' %}
+    {% if not store %}
+        <!-- Admin en panel general -->
+        <nav class="navbar">
+            <div class="navbar-container">
+                <div class="navbar-item">
+                    <a href="{% url 'store_list_admin' %}" class="navbar-link">
+                        🏪 Tiendas
+                    </a>
+                </div>
+                <div class="navbar-item">
+                    <a href="{% url 'admin_user_list' %}" class="navbar-link">
+                        👥 Usuarios
+                    </a>
+                </div>
+            </div>
+        </nav>
+    {% else %}
+        <!-- Admin dentro de una tienda -->
+        <nav class="navbar">
+            <div class="navbar-container">
+                <div class="navbar-item">
+                    <a href="{% url 'store_detail' store.pk %}" class="navbar-link">
+                        📦 Productos
+                    </a>
+                </div>
+                <div class="navbar-item">
+                    <a href="#" class="navbar-link" onclick="alert('Pedidos - próximamente'); return false;">
+                        📋 Pedidos
+                    </a>
+                </div>
+                <div class="navbar-item">
+                    <a href="{% url 'store_update' store.pk %}" class="navbar-link">
+                        ⚙️ Editar Información
+                    </a>
+                </div>
+            </div>
+        </nav>
+    {% endif %}
+{% endif %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Home vendedor - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .seller-page {
+        width: min(1200px, calc(100% - 40px));
+        margin: 30px auto;
+    }
+
+    .seller-title {
+        font-size: 34px;
+        margin-bottom: 24px;
+        color: #1e1e1e;
+    }
+
+    .store-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 24px;
+    }
+
+    .store-card {
+        display: flex;
+        background: #c9f8c1;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        text-decoration: none;
+        color: inherit;
+        min-height: 120px;
+    }
+
+    .store-card:hover {
+        transform: translateY(-2px);
+        transition: transform 0.2s ease;
+    }
+
+    .store-image {
+        width: 120px;
+        flex: 0 0 120px;
+        background: #f0f0f0;
+        object-fit: cover;
+    }
+
+    .store-info {
+        padding: 14px 16px;
+        flex: 1;
+    }
+
+    .store-info h2 {
+        font-size: 20px;
+        margin-bottom: 8px;
+        color: #1f3c1f;
+    }
+
+    .store-info p {
+        margin: 4px 0;
+        color: #243024;
+        font-size: 14px;
+    }
+
+    .empty-state {
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="seller-page">
+    <h1 class="seller-title">Tiendas</h1>
+
+    {% if stores %}
+        <div class="store-grid">
+            {% for store in stores %}
+                <a class="store-card" href="{% url 'store_detail' store.pk %}">
+                    {% if store.imagen %}
+                        <img class="store-image" src="{{ store.imagen.url }}" alt="{{ store.nombre }}">
+                    {% else %}
+                        <div class="store-image"></div>
+                    {% endif %}
+                    <div class="store-info">
+                        <h2>{{ store.nombre }}</h2>
+                        <p>{{ store.descripcion|default:"Sin descripción" }}</p>
+                        <p>{{ store.direccion|default:"Sin dirección" }}</p>
+                        <p>{{ store.horario|default:"Sin horario" }}</p>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No tienes ninguna tienda asignada todavía.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
