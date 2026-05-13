@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Eliminar Tienda - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirm-container {
+        max-width: 500px;
+        margin: 40px auto;
+        padding: 40px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .confirm-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+    }
+
+    h1 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    .confirm-message {
+        color: #666;
+        margin-bottom: 30px;
+        line-height: 1.6;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 12px 30px;
+        border-radius: 4px;
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+
+    .btn-danger {
+        background-color: #f44336;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #da190b;
+    }
+
+    .btn-secondary {
+        background-color: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-secondary:hover {
+        background-color: #d0d0d0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="confirm-container">
+    <div class="confirm-icon">⚠️</div>
+    <h1>Eliminar Tienda</h1>
+    <p class="confirm-message">
+        ¿Está seguro de que desea eliminar la tienda <strong>{{ store.nombre }}</strong>?<br>
+        <small>Esta acción no se puede deshacer.</small>
+    </p>
+
+    <form method="post" style="display: inline;">
+        {% csrf_token %}
+        <div class="button-group">
+            <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+            <a href="{% url 'store_list_admin' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

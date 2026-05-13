@@ -1,5 +1,6 @@
 from django.db import models
 from stores.models import Tienda
+from django.core.exceptions import ValidationError
 
 
 class Producto(models.Model):
@@ -51,6 +52,21 @@ class Producto(models.Model):
     def tiene_oferta(self):
         """Verifica si el producto está marcado en oferta y el precio de oferta es válido"""
         return bool(self.en_oferta and self.precio_oferta is not None and self.precio_oferta < self.precio)
+
+    def clean(self):
+        """Validación de precios"""
+        errors = {}
+        
+        # Validar que precio_oferta, si existe, sea mayor que 0
+        if self.precio_oferta is not None and self.precio_oferta <= 0:
+            errors['precio_oferta'] = 'El precio en oferta debe ser mayor que 0.'
+        
+        # Validar que precio_oferta no sea mayor que el precio normal
+        if self.precio_oferta is not None and self.precio_oferta > self.precio:
+            errors['precio_oferta'] = 'El precio en oferta no puede ser mayor que el precio normal.'
+        
+        if errors:
+            raise ValidationError(errors)
 
     class Meta:
         ordering = ['-created_at']

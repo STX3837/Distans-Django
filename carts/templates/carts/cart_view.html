@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Carrito - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cart-page {
+        width: min(1200px, calc(100% - 40px));
+        margin: 30px auto 60px;
+    }
+
+    .cart-page h1 {
+        font-size: 32px;
+        margin-bottom: 30px;
+        color: #333;
+    }
+
+    .cart-container {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+    }
+
+    .cart-items {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .empty-cart {
+        text-align: center;
+        padding: 40px;
+    }
+
+    .empty-cart p {
+        color: #999;
+        margin-bottom: 20px;
+    }
+
+    .empty-cart a {
+        color: #4caf50;
+        text-decoration: none;
+        font-weight: bold;
+    }
+
+    .empty-cart a:hover {
+        text-decoration: underline;
+    }
+
+    .cart-item {
+        display: grid;
+        grid-template-columns: 100px 1fr auto;
+        gap: 20px;
+        padding: 20px 0;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+    }
+
+    .cart-item:last-child {
+        border-bottom: none;
+    }
+
+    .item-image {
+        width: 100px;
+        height: 100px;
+        background: #f5f5f5;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .item-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .item-name {
+        font-weight: bold;
+        color: #333;
+        font-size: 16px;
+    }
+
+    .item-store {
+        font-size: 13px;
+        color: #666;
+    }
+
+    .item-price {
+        color: #4caf50;
+        font-weight: bold;
+    }
+
+    .item-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: right;
+    }
+
+    .item-quantity {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+
+    .item-quantity input {
+        width: 50px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    .remove-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .remove-btn:hover {
+        background: #c0392b;
+    }
+
+    .cart-summary {
+        background: white;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        height: fit-content;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .summary-row.total {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        border-bottom: none;
+        padding-top: 15px;
+    }
+
+    .checkout-btn {
+        width: 100%;
+        padding: 14px;
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: background 0.3s;
+    }
+
+    .checkout-btn:hover {
+        background: #45a049;
+    }
+
+    .checkout-btn:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+    }
+
+    .continue-shopping {
+        width: 100%;
+        padding: 12px;
+        background: #f0f0f0;
+        color: #333;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+        text-decoration: none;
+        text-align: center;
+        display: block;
+        transition: background 0.3s;
+    }
+
+    .continue-shopping:hover {
+        background: #e0e0e0;
+    }
+
+    @media (max-width: 768px) {
+        .cart-container {
+            grid-template-columns: 1fr;
+        }
+
+        .cart-item {
+            grid-template-columns: 80px 1fr;
+            gap: 15px;
+        }
+
+        .item-actions {
+            grid-column: 1 / -1;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .item-image {
+            width: 80px;
+            height: 80px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cart-page">
+    <h1>Mi Carrito</h1>
+
+    {% if has_items %}
+        <div class="cart-container">
+            <!-- Lista de items -->
+            <div class="cart-items">
+                {% if user.is_authenticated %}
+                    {% for item in items %}
+                        <div class="cart-item">
+                            <div class="item-image">
+                                {% if item.producto.imagen %}
+                                    <img src="{{ item.producto.imagen.url }}" alt="{{ item.producto.nombre }}">
+                                {% endif %}
+                            </div>
+                            <div class="item-info">
+                                <div class="item-name">{{ item.producto.nombre }}</div>
+                                <div class="item-store">{{ item.producto.tienda.nombre }}</div>
+                                <div class="item-price">
+                                    {% if item.producto.en_oferta and item.producto.precio_oferta %}
+                                        <span style="text-decoration: line-through; color: #999;">{{ item.producto.precio }} €</span>
+                                        {{ item.producto.precio_oferta }} €
+                                    {% else %}
+                                        {{ item.producto.precio }} €
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <div style="font-weight: bold; color: #333;">{{ item.subtotal }} €</div>
+                                <div class="item-quantity">
+                                    <span>Cant: {{ item.cantidad }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    {% for item in session_items %}
+                        <div class="cart-item">
+                            <div class="item-image">
+                                {% if item.imagen %}
+                                    <img src="{{ item.imagen }}" alt="{{ item.nombre }}">
+                                {% endif %}
+                            </div>
+                            <div class="item-info">
+                                <div class="item-name">{{ item.nombre }}</div>
+                                <div class="item-store">{{ item.tienda_nombre }}</div>
+                                <div class="item-price">
+                                    {% if item.en_oferta and item.precio_oferta %}
+                                        <span style="text-decoration: line-through; color: #999;">{{ item.precio }} €</span>
+                                        {{ item.precio_oferta }} €
+                                    {% else %}
+                                        {{ item.precio }} €
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <div style="font-weight: bold; color: #333;">{{ item.subtotal }} €</div>
+                                <div class="item-quantity">
+                                    <span>Cant: {{ item.cantidad }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Resumen -->
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span>{{ total }} €</span>
+                </div>
+                <div class="summary-row">
+                    <span>Envío</span>
+                    <span>Gratis</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total</span>
+                    <span>{{ total }} €</span>
+                </div>
+                <button class="checkout-btn">Proceder a compra</button>
+                <a href="javascript:history.back()" class="continue-shopping">Seguir comprando</a>
+            </div>
+        </div>
+    {% else %}
+        <div class="empty-cart">
+            <p style="font-size: 16px;">Tu carrito está vacío</p>
+            <p style="color: #666;">Explora nuestros productos y añade algunos a tu carrito.</p>
+            <a href="/">Ir a tienda</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

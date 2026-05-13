@@ -1,11 +1,18 @@
 <header class="header">
     <div class="header-container">
-        <div class="header-logo">
+        <a href="/" class="header-logo">
             <span class="logo-icon">🌍</span>
             <span class="logo-text">DISTANS</span>
-        </div>
+        </a>
         
         <nav class="header-nav">
+            {% if not user.is_authenticated or user.rol == 'comprador' %}
+                <a href="{% url 'cart_view' %}" class="cart-button" title="Ver carrito">
+                    <span class="cart-icon">🛒</span>
+                    <span class="cart-text">Carrito</span>
+                </a>
+            {% endif %}
+            
             {% if user.is_authenticated %}
                 <div class="user-menu">
                     <span class="user-name">{{ user.nombre }} {{ user.apellidos }}</span>
@@ -52,6 +59,11 @@
         gap: 10px;
         text-decoration: none;
         color: #333;
+        cursor: pointer;
+    }
+
+    .header-logo:hover {
+        opacity: 0.8;
     }
 
     .logo-icon {
@@ -69,6 +81,33 @@
         display: flex;
         align-items: center;
         gap: 20px;
+    }
+
+    .cart-button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background-color: #4caf50;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+
+    .cart-button:hover {
+        background-color: #45a049;
+        transform: scale(1.05);
+    }
+
+    .cart-icon {
+        font-size: 18px;
+    }
+
+    .cart-text {
+        display: inline;
     }
 
     .auth-buttons {
@@ -140,5 +179,49 @@
 
     .logout-link:hover {
         background-color: #ffcdd2;
+    }
+
+    @media (max-width: 768px) {
+        .header-container {
+            padding: 12px 20px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+        }
+
+        .header-nav {
+            gap: 10px;
+        }
+
+        .cart-text {
+            display: none;
+        }
+
+        .auth-buttons {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .user-menu {
+            gap: 8px;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .user-name {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .nav-link {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
     }
 </style>

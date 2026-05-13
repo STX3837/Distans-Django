@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Administración de Tiendas - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        max-width: 1000px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+
+    .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .admin-header h1 {
+        margin: 0;
+        color: #333;
+    }
+
+    .btn-new {
+        background-color: #4caf50;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+
+    .btn-new:hover {
+        background-color: #45a049;
+    }
+
+    .stores-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .stores-table thead {
+        background-color: #f5f5f5;
+        border-bottom: 2px solid #ddd;
+    }
+
+    .stores-table th {
+        padding: 15px;
+        text-align: left;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .stores-table td {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .stores-table tbody tr:hover {
+        background-color: #f9f9f9;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s;
+    }
+
+    .btn-edit {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    .btn-edit:hover {
+        background-color: #0b7dda;
+    }
+
+    .btn-delete {
+        background-color: #f44336;
+        color: white;
+    }
+
+    .btn-delete:hover {
+        background-color: #da190b;
+    }
+
+    .btn-view {
+        background-color: #4caf50;
+        color: white;
+    }
+
+    .btn-view:hover {
+        background-color: #45a049;
+    }
+
+    .empty-message {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+        background: white;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>🏪 Administración de Tiendas</h1>
+        <a href="{% url 'store_create_admin' %}" class="btn-new">+ Nueva Tienda</a>
+    </div>
+
+    {% if stores %}
+        <table class="stores-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Vendedor</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tienda in stores %}
+                    <tr>
+                        <td><strong>{{ tienda.nombre }}</strong></td>
+                        <td>{{ tienda.direccion|default:"—" }}</td>
+                        <td>{{ tienda.vendedor.get_full_name }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="{% url 'store_detail' tienda.pk %}" class="btn-sm btn-view">Ver</a>
+                                <a href="{% url 'store_update_admin' tienda.pk %}" class="btn-sm btn-edit">Editar</a>
+                                <a href="{% url 'store_delete_admin' tienda.pk %}" class="btn-sm btn-delete">Eliminar</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-message">No hay tiendas. <a href="{% url 'store_create_admin' %}">Crear una nueva</a></div>
+    {% endif %}
+</div>
+{% endblock %}

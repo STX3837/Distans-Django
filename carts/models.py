@@ -10,7 +10,7 @@ class Carrito(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Carrito de {self.usuario.username}"
+        return f"Carrito de {self.usuario.email}"
 
     def total(self):
         """Calcula el total del carrito"""

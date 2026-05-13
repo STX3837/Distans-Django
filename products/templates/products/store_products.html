@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{{ store.nombre }} - Productos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .catalog-page { width: min(1200px, calc(100% - 40px)); margin: 30px auto 60px; }
+    .store-header { margin-bottom: 16px; }
+    .store-subtitle { color: #666; margin-top: 4px; }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .product-card { background: white; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-decoration: none; color: inherit; }
+    .product-card img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; }
+    .product-price { font-weight: bold; margin-top: 8px; }
+    .empty-message { padding: 20px; border-radius: 8px; background: #fff; color: #666; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="catalog-page">
+    <div class="store-header">
+        <h1>Productos de {{ store.nombre }}</h1>
+        <p class="store-subtitle">Catálogo de esta tienda</p>
+    </div>
+
+    {% if products %}
+        <div class="product-grid">
+            {% for product in products %}
+                <a class="product-card" href="{% url 'product_detail' product.pk %}">
+                    {% if product.imagen %}
+                        <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
+                    {% endif %}
+                    <h3>{{ product.nombre }}</h3>
+                    <p>{{ store.nombre }}</p>
+                    <div class="product-price">
+                        {% if product.en_oferta and product.precio_oferta %}
+                            <span style="text-decoration: line-through; color: #999">{{ product.precio }}€</span>
+                            <span style="color: #e74c3c"> {{ product.precio_oferta }}€</span>
+                        {% else %}
+                            {{ product.precio }}€
+                        {% endif %}
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-message">Esta tienda no tiene productos disponibles ahora mismo.</div>
+    {% endif %}
+</div>
+{% endblock %}

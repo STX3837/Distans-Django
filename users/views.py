@@ -29,16 +29,38 @@ def signup(request):
 
 @login_required
 def post_login_redirect(request):
+    # Al iniciar sesión normal, se elimina el estado de invitado.
+    request.session.pop('guest', None)
+
+    # Comprador -> catálogo de productos
+    if request.user.rol == User.Role.BUYER:
+        return redirect('catalog')
+
+    # Vendedor -> panel de vendedor
     if request.user.rol == User.Role.SELLER:
         try:
             return redirect('seller_home')
         except Exception:
             return redirect('account_detail')
 
+    # Admin / staff -> listado de tiendas (visión global)
     if request.user.is_staff or request.user.rol == User.Role.ADMIN:
-        return redirect('admin_user_list')
+        return redirect('store_list')
 
     return redirect('account_detail')
+
+
+def guest_login(request):
+    """Iniciar sesión como invitado (sin crear usuario). Guarda una marca en sesión."""
+    # Clear any existing authenticated session
+    try:
+        from django.contrib.auth import logout
+        logout(request)
+    except Exception:
+        pass
+
+    request.session['guest'] = True
+    return redirect('catalog')
 
 
 @login_required
