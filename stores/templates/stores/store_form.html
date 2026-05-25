@@ -44,6 +44,27 @@
         min-height: 120px;
     }
 
+    .map-section {
+        margin-bottom: 20px;
+    }
+
+    .map-section-title {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: bold;
+    }
+
+    .map-note {
+        color: #666;
+        font-size: 13px;
+        margin-top: 8px;
+    }
+
+    .map-error-summary {
+        margin-bottom: 12px;
+    }
+
     button {
         width: 100%;
         padding: 12px;
@@ -94,6 +115,7 @@
         {% csrf_token %}
 
         {% for field in form %}
+            {% if not field.is_hidden %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                 {{ field }}
@@ -105,7 +127,30 @@
                     </ul>
                 {% endif %}
             </div>
+            {% endif %}
         {% endfor %}
+
+        {{ form.latitud }}
+        {{ form.longitud }}
+
+        {% if form.latitud.errors or form.longitud.errors %}
+            <ul class="errorlist map-error-summary">
+                {% for error in form.latitud.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+                {% for error in form.longitud.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="map-section">
+            <span class="map-section-title">Ubicacion en mapa</span>
+            <div class="map-picker js-map-picker" data-map-id="store-location-map" data-lat-input-id="id_latitud" data-lng-input-id="id_longitud" data-has-initial="{% if form.latitud.value and form.longitud.value %}true{% else %}false{% endif %}" data-initial-lat="{% if form.latitud.value %}{{ form.latitud.value }}{% endif %}" data-initial-lng="{% if form.longitud.value %}{{ form.longitud.value }}{% endif %}" data-default-lat="40.4168" data-default-lng="-3.7038">
+                <div id="store-location-map" class="map-canvas"></div>
+            </div>
+            <p class="map-note">Haz clic sobre el mapa para guardar la ubicacion de la tienda.</p>
+        </div>
 
         <button type="submit">Guardar</button>
     </form>

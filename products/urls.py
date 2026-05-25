@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from stores import views as store_views
 
 urlpatterns = [
     # Vendedor
@@ -12,6 +13,8 @@ urlpatterns = [
     path('vendedor/tiendas/<int:store_pk>/productos/<int:pk>/eliminar/', views.product_delete, name='product_delete'),
     
     # Comprador - Público
+    path('busqueda/ubicacion/', store_views.set_search_location, name='set_search_location'),
+    path('busqueda/radio/', store_views.set_search_radius, name='set_search_radius'),
     path('productos/', views.catalog, name='catalog'),
     path('tiendas/<int:pk>/productos/', views.store_products, name='store_products'),
     path('productos/<int:pk>/', views.product_detail, name='product_detail'),

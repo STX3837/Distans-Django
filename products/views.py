@@ -12,6 +12,7 @@ from carts.models import Carrito, ProductoCarrito
 from .forms import ProductoForm
 from .models import Producto
 from stores.models import Tienda
+from stores.utils import filter_products_by_geo, get_geo_search_state, store_is_within_radius
 
 
 def buyer_or_guest_required(view_func):
@@ -34,21 +35,27 @@ def buyer_or_guest_required(view_func):
 @buyer_or_guest_required
 def catalog(request):
 	"""Listado público de productos de todas las tiendas."""
-	productos = Producto.objects.filter(disponible=True).order_by('-destacado', 'nombre').select_related('tienda')
-	return render(request, 'products/catalog.html', {'products': productos})
+	geo_state = get_geo_search_state(request)
+	productos = Producto.objects.filter(disponible=True).select_related('tienda')
+	productos = filter_products_by_geo(productos, geo_state).order_by('-destacado', 'nombre')
+	return render(request, 'products/catalog.html', {'products': productos, 'geo_search': geo_state})
 
 
 @buyer_or_guest_required
 def store_products(request, pk):
 	"""Listado de productos de una tienda concreta para compradores e invitados."""
 	tienda = get_object_or_404(Tienda, pk=pk)
-	productos = tienda.productos.filter(disponible=True).order_by('-destacado', 'nombre')
+	geo_state = get_geo_search_state(request)
+	store_allowed = store_is_within_radius(tienda, geo_state['latitude'], geo_state['longitude'], geo_state['radius_km'])
+	productos = tienda.productos.filter(disponible=True).order_by('-destacado', 'nombre') if store_allowed else tienda.productos.none()
 	return render(
 		request,
 		'products/store_products.html',
 		{
 			'store': tienda,
 			'products': productos,
+			'geo_search': geo_state,
+			'store_in_radius': store_allowed,
 		},
 	)
 

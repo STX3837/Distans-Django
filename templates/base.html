@@ -107,12 +107,58 @@
         a:hover {
             text-decoration: underline;
         }
+
+        .messages {
+            width: min(1200px, calc(100% - 40px));
+            margin: 16px auto 0;
+            display: grid;
+            gap: 10px;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .message-success {
+            background: #e8f5e9;
+            color: #1b5e20;
+            border-left: 4px solid #4caf50;
+        }
+
+        .message-error {
+            background: #ffebee;
+            color: #b71c1c;
+            border-left: 4px solid #f44336;
+        }
+
+        .message-warning {
+            background: #fff8e1;
+            color: #8d6e00;
+            border-left: 4px solid #ffc107;
+        }
+
+        .message-info {
+            background: #e3f2fd;
+            color: #0d47a1;
+            border-left: 4px solid #2196f3;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     {% include "header.html" %}
     {% include "navbar.html" %}
+
+    {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+                <div class="message message-{{ message.tags|default:'info' }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
     
     <main class="main-content">
         {% block content %}{% endblock %}

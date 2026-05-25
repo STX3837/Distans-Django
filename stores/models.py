@@ -7,6 +7,8 @@ class Tienda(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     ubicacion = models.CharField(max_length=255, blank=True, null=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     horario = models.CharField(max_length=255, blank=True, null=True)
     imagen = models.ImageField(upload_to='tiendas/', blank=True, null=True)
     vendedor = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tienda')

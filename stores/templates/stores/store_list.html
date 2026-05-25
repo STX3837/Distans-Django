@@ -10,6 +10,15 @@
         padding: 0 20px;
     }
 
+    .search-banner {
+        margin: 14px 0 18px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: #eef7ee;
+        color: #1b5e20;
+        font-weight: 600;
+    }
+
     h1 {
         margin-bottom: 30px;
         color: #333;
@@ -68,6 +77,12 @@
 {% block content %}
 <div class="stores-container">
     <h1>🏪 Tiendas</h1>
+
+    {% if geo_search.has_location and geo_search.has_radius %}
+        <div class="search-banner">Mostrando tiendas dentro de {{ geo_search.radius_label }} de tu ubicacion seleccionada.</div>
+    {% elif geo_search.has_location %}
+        <div class="search-banner">Tienes una ubicacion seleccionada, pero no se aplica ningun radio.</div>
+    {% endif %}
     
     {% if stores %}
         <div class="store-grid">
@@ -82,7 +97,7 @@
             {% endfor %}
         </div>
     {% else %}
-        <div class="empty-message">No hay tiendas disponibles.</div>
+        <div class="empty-message">No hay tiendas disponibles para la busqueda actual.</div>
     {% endif %}
 </div>
 {% endblock %}

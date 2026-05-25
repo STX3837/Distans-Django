@@ -63,6 +63,18 @@ def guest_login(request):
     return redirect('catalog')
 
 
+def logout_and_clear(request):
+    """Logout and clear guest flag from session."""
+    try:
+        from django.contrib.auth import logout
+        logout(request)
+    except Exception:
+        pass
+
+    request.session.pop('guest', None)
+    return redirect('login')
+
+
 @login_required
 def account_detail(request):
     if request.method == 'POST':
