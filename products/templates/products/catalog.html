@@ -5,9 +5,35 @@
 {% block extra_css %}
 <style>
     .catalog-page { width: min(1200px, calc(100% - 40px)); margin: 30px auto 60px; }
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
-    .product-card { background: white; border-radius:8px; padding:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); text-decoration:none; color:inherit }
-    .product-card img{ width:100%; height:160px; object-fit:cover; border-radius:6px }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .product-card {
+        display: flex;
+        gap: 14px;
+        align-items: stretch;
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-decoration: none;
+        color: inherit;
+        min-height: 140px;
+    }
+    .product-card:hover { transform: translateY(-2px); transition: transform 0.18s ease; }
+    .product-image {
+        flex: 0 0 120px;
+        width: 120px;
+        min-height: 120px;
+        border-radius: 6px;
+        background: #f4f4f4;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .product-image img{ width:100%; height:100%; object-fit:contain; display:block; }
+    .product-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .product-info h3 { margin: 0 0 6px; }
+    .product-info p { margin: 0; color: #666; }
     .product-price{ font-weight:bold; margin-top:8px }
 </style>
 {% endblock %}
@@ -18,18 +44,24 @@
     <div class="product-grid">
         {% for product in products %}
             <a class="product-card" href="{% url 'product_detail' product.pk %}">
-                {% if product.imagen %}
-                    <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
-                {% endif %}
-                <h3>{{ product.nombre }}</h3>
-                <p>{{ product.tienda.nombre }}</p>
-                <div class="product-price">
-                    {% if product.en_oferta and product.precio_oferta %}
-                        <span style="text-decoration:line-through;color:#999">{{ product.precio }}€</span>
-                        <span style="color:#e74c3c"> {{ product.precio_oferta }}€</span>
+                <div class="product-image">
+                    {% if product.imagen %}
+                        <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
                     {% else %}
-                        {{ product.precio }}€
+                        <div style="color:#999; font-size:14px; text-align:center; padding:10px;">Sin imagen</div>
                     {% endif %}
+                </div>
+                <div class="product-info">
+                    <h3>{{ product.nombre }}</h3>
+                    <p>{{ product.tienda.nombre }}</p>
+                    <div class="product-price">
+                        {% if product.en_oferta and product.precio_oferta %}
+                            <span style="text-decoration:line-through;color:#999">{{ product.precio }}€</span>
+                            <span style="color:#e74c3c"> {{ product.precio_oferta }}€</span>
+                        {% else %}
+                            {{ product.precio }}€
+                        {% endif %}
+                    </div>
                 </div>
             </a>
         {% endfor %}

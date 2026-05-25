@@ -264,7 +264,7 @@
             <h1>{{ product.nombre }}</h1>
 
             <div class="product-store">
-                Vendido por: <a href="{% url 'store_detail' product.tienda.pk %}">{{ product.tienda.nombre }}</a>
+                Vendido por: <a href="{% url 'store_products' product.tienda.pk %}">{{ product.tienda.nombre }}</a>
             </div>
 
             <!-- Badges -->
