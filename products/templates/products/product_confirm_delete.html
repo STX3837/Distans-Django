@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Eliminar producto - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-page {
+        width: min(900px, calc(100% - 40px));
+        margin: 40px auto;
+        background: #fff;
+        padding: 28px;
+        border-radius: 8px;
+        box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    .delete-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-page">
+    <h1>Eliminar producto</h1>
+    <p>Vas a eliminar <strong>{{ product.nombre }}</strong> de la tienda <strong>{{ store.nombre }}</strong>.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="delete-actions">
+            <a class="btn btn-secondary" href="{% url 'product_update' store.pk product.pk %}">Cancelar</a>
+            <button type="submit" class="btn btn-danger">Eliminar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,28 +1,127 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
 <header class="header">
     <div class="header-container">
-        <div class="header-logo">
+        <a href="/" class="header-logo">
             <span class="logo-icon">🌍</span>
             <span class="logo-text">DISTANS</span>
-        </div>
-        
+        </a>
+
+        {% if user.is_authenticated and user.rol == 'comprador' or request.session.guest %}
+            <div class="search-panel">
+                <div class="search-actions">
+                    <button type="button" class="search-button search-button-primary" data-open-modal="location-modal">Selecciona ubicacion</button>
+                    <button type="button" class="search-button search-button-secondary" data-open-modal="radius-modal">Radio</button>
+                </div>
+                <div class="search-status">
+                    <span>
+                        Ubicacion:
+                        {% if request.session.search_latitude and request.session.search_longitude %}
+                            {{ request.session.search_latitude }}, {{ request.session.search_longitude }}
+                        {% else %}
+                            ninguna
+                        {% endif %}
+                    </span>
+                    <span>
+                        Radio:
+                        {% if request.session.search_radius_km %}
+                            {{ request.session.search_radius_km }} km
+                        {% else %}
+                            ninguno
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        {% else %}
+            <div class="header-spacer"></div>
+        {% endif %}
+
         <nav class="header-nav">
+            {% if user.is_authenticated and user.rol == 'comprador' or request.session.guest %}
+                <a href="{% url 'cart_view' %}" class="cart-button" title="Ver carrito">
+                    <span class="cart-icon">🛒</span>
+                    <span class="cart-text">Carrito</span>
+                </a>
+            {% endif %}
+
             {% if user.is_authenticated %}
                 <div class="user-menu">
                     <span class="user-name">{{ user.nombre }} {{ user.apellidos }}</span>
+                    {% if user.rol == 'vendedor' or user.is_staff %}
+                        <a href="{% url 'seller_home' %}" class="nav-link">Mis tiendas</a>
+                    {% endif %}
                     <a href="{% url 'account_detail' %}" class="nav-link">Mi Cuenta</a>
                     {% if user.is_staff %}
-                        <a href="{% url 'admin_user_list' %}" class="nav-link">Gestión de Usuarios</a>
+                        <a href="{% url 'admin_user_list' %}" class="nav-link">Gestion de Usuarios</a>
                     {% endif %}
-                    <a href="{% url 'logout' %}" class="nav-link logout-link">Cerrar Sesión</a>
+                    <a href="{% url 'logout' %}" class="nav-link logout-link">Cerrar Sesion</a>
                 </div>
             {% else %}
                 <div class="auth-buttons">
                     <a href="{% url 'signup' %}" class="btn btn-primary">Registrarse</a>
-                    <a href="{% url 'login' %}" class="btn btn-secondary">Iniciar Sesión</a>
+                    <a href="{% url 'login' %}" class="btn btn-secondary">Iniciar Sesion</a>
                 </div>
             {% endif %}
         </nav>
     </div>
+
+    {% if not user.is_authenticated or user.rol == 'comprador' %}
+        <div class="search-modal" id="location-modal" hidden>
+            <div class="search-modal-backdrop" data-close-modal="location-modal"></div>
+            <div class="search-modal-card" role="dialog" aria-modal="true" aria-labelledby="location-modal-title">
+                <div class="search-modal-header">
+                    <h2 id="location-modal-title">Selecciona ubicacion</h2>
+                    <button type="button" class="search-modal-close" data-close-modal="location-modal">×</button>
+                </div>
+                <p class="search-modal-text">Haz clic en el mapa para fijar la ubicacion de busqueda.</p>
+                <form method="post" action="{% url 'set_search_location' %}" class="search-modal-form">
+                    {% csrf_token %}
+                    <div class="form-group-inline">
+                        <button type="button" id="use-my-location-btn" class="search-button search-button-primary">Usar mi posición</button>
+                        <div id="location-status" style="color:#666;font-size:13px;margin-top:6px;" aria-live="polite"></div>
+                    </div>
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <input type="hidden" name="latitude" id="header-search-latitude">
+                    <input type="hidden" name="longitude" id="header-search-longitude">
+                    <div class="map-picker js-map-picker" data-map-id="header-search-map" data-lat-input-id="header-search-latitude" data-lng-input-id="header-search-longitude" data-has-initial="{% if request.session.search_latitude and request.session.search_longitude %}true{% else %}false{% endif %}" data-initial-lat="{% if request.session.search_latitude %}{{ request.session.search_latitude }}{% endif %}" data-initial-lng="{% if request.session.search_longitude %}{{ request.session.search_longitude }}{% endif %}" data-default-lat="40.4168" data-default-lng="-3.7038">
+                        <div id="header-search-map" class="map-canvas"></div>
+                    </div>
+                    <button type="submit" class="search-submit">Guardar ubicacion</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="search-modal" id="radius-modal" hidden>
+            <div class="search-modal-backdrop" data-close-modal="radius-modal"></div>
+            <div class="search-modal-card" role="dialog" aria-modal="true" aria-labelledby="radius-modal-title">
+                <div class="search-modal-header">
+                    <h2 id="radius-modal-title">Selecciona radio</h2>
+                    <button type="button" class="search-modal-close" data-close-modal="radius-modal">×</button>
+                </div>
+                <p class="search-modal-text">Define el radio de busqueda respecto a la ubicacion seleccionada.</p>
+                <form method="post" action="{% url 'set_search_radius' %}" class="search-modal-form" id="radius-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <input type="hidden" name="radius_value" id="radius-value-field">
+                    <div class="form-group-inline">
+                        <label for="radius-mode">Radio</label>
+                        <select id="radius-mode" name="radius_mode" class="radius-select">
+                            <option value="none" {% if not request.session.search_radius_km %}selected{% endif %}>Ninguno</option>
+                            <option value="2" {% if request.session.search_radius_km == 2 or request.session.search_radius_km == 2.0 %}selected{% endif %}>2 km</option>
+                            <option value="5" {% if request.session.search_radius_km == 5 or request.session.search_radius_km == 5.0 %}selected{% endif %}>5 km</option>
+                            <option value="10" {% if request.session.search_radius_km == 10 or request.session.search_radius_km == 10.0 %}selected{% endif %}>10 km</option>
+                            <option value="custom" {% if request.session.search_radius_km and request.session.search_radius_km != 2 and request.session.search_radius_km != 5 and request.session.search_radius_km != 10 %}selected{% endif %}>Personalizado</option>
+                        </select>
+                    </div>
+                    <div class="form-group-inline" id="custom-radius-wrapper" {% if not request.session.search_radius_km or request.session.search_radius_km == 2 or request.session.search_radius_km == 5 or request.session.search_radius_km == 10 %}hidden{% endif %}>
+                        <label for="custom-radius-value">Kilometros personalizados</label>
+                        <input type="number" id="custom-radius-value" step="0.1" min="0.1" placeholder="Ej. 3.5" value="{% if request.session.search_radius_km and request.session.search_radius_km != 2 and request.session.search_radius_km != 5 and request.session.search_radius_km != 10 %}{{ request.session.search_radius_km }}{% endif %}">
+                    </div>
+                    <button type="submit" class="search-submit">Guardar radio</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 </header>
 
 <style>
@@ -36,11 +135,10 @@
 
     .header-container {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 15px 30px;
-        max-width: 1200px;
-        margin: 0 auto;
+        gap: 20px;
+        width: 100%;
+        padding: 14px 18px;
     }
 
     .header-logo {
@@ -49,6 +147,11 @@
         gap: 10px;
         text-decoration: none;
         color: #333;
+        flex: 0 0 auto;
+    }
+
+    .header-logo:hover {
+        opacity: 0.85;
     }
 
     .logo-icon {
@@ -62,10 +165,102 @@
         letter-spacing: 2px;
     }
 
+    .search-panel {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .search-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .search-button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .search-button:hover {
+        transform: translateY(-1px);
+    }
+
+    .search-button-primary {
+        background: #e8f5e9;
+        color: #1b5e20;
+    }
+
+    .search-button-primary:hover {
+        background: #d4edd6;
+    }
+
+    .search-button-secondary {
+        background: #f5f5f5;
+        color: #333;
+    }
+
+    .search-button-secondary:hover {
+        background: #ececec;
+    }
+
+    .search-status {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        color: #666;
+        font-size: 12px;
+    }
+
+    .header-spacer {
+        flex: 1 1 auto;
+    }
+
     .header-nav {
         display: flex;
         align-items: center;
         gap: 20px;
+        flex: 0 0 auto;
+        margin-left: auto;
+    }
+
+    .cart-button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background-color: #4caf50;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+
+    .cart-button:hover {
+        background-color: #45a049;
+        transform: scale(1.03);
+    }
+
+    .cart-icon {
+        font-size: 18px;
+    }
+
+    .cart-text {
+        display: inline;
     }
 
     .auth-buttons {
@@ -107,6 +302,8 @@
         display: flex;
         align-items: center;
         gap: 15px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .user-name {
@@ -138,4 +335,368 @@
     .logout-link:hover {
         background-color: #ffcdd2;
     }
+
+    .search-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    .search-modal[hidden] {
+        display: none;
+    }
+
+    .search-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    .search-modal-card {
+        position: relative;
+        width: min(920px, 100%);
+        background: #fff;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        z-index: 1;
+    }
+
+    .search-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 10px;
+    }
+
+    .search-modal-header h2 {
+        margin: 0;
+        color: #1f2937;
+    }
+
+    .search-modal-close {
+        border: none;
+        background: #f3f4f6;
+        color: #111827;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .search-modal-text {
+        color: #4b5563;
+        margin-bottom: 14px;
+    }
+
+    .search-modal-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .form-group-inline {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-group-inline label {
+        font-weight: 700;
+        color: #333;
+    }
+
+    .radius-select,
+    .form-group-inline input[type="number"] {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        font-size: 14px;
+        background: #fff;
+    }
+
+    .map-picker {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .map-canvas {
+        width: 100%;
+        height: 360px;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid #d1d5db;
+        background: #e5e7eb;
+    }
+
+    .search-submit {
+        align-self: flex-start;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: #4caf50;
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .search-submit:hover {
+        background: #45a049;
+    }
+
+    @media (max-width: 900px) {
+        .header-container {
+            flex-wrap: wrap;
+        }
+
+        .search-panel {
+            order: 3;
+            width: 100%;
+        }
+
+        .header-nav {
+            margin-left: 0;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .header-container {
+            padding: 12px 16px;
+            gap: 12px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+        }
+
+        .search-actions {
+            width: 100%;
+        }
+
+        .search-button,
+        .btn,
+        .nav-link {
+            font-size: 12px;
+        }
+
+        .header-nav {
+            gap: 10px;
+        }
+
+        .cart-text {
+            display: none;
+        }
+
+        .auth-buttons {
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .user-menu {
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .map-canvas {
+            height: 300px;
+        }
+    }
 </style>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const openModal = (modalId) => {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.hidden = false;
+                document.body.style.overflow = 'hidden';
+                window.requestAnimationFrame(() => {
+                    modal.querySelectorAll('.js-map-picker').forEach((picker) => {
+                        if (picker._leafletMap) {
+                            picker._leafletMap.invalidateSize();
+                        }
+                    });
+                });
+            }
+        };
+
+        const closeModal = (modalId) => {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.hidden = true;
+                document.body.style.overflow = '';
+            }
+        };
+
+        document.addEventListener('click', (event) => {
+            const openTrigger = event.target.closest('[data-open-modal]');
+            if (openTrigger) {
+                openModal(openTrigger.dataset.openModal);
+                return;
+            }
+
+            const closeTrigger = event.target.closest('[data-close-modal]');
+            if (closeTrigger) {
+                closeModal(closeTrigger.dataset.closeModal);
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.search-modal:not([hidden])').forEach((modal) => {
+                    modal.hidden = true;
+                });
+                document.body.style.overflow = '';
+            }
+        });
+
+        const radiusSelect = document.getElementById('radius-mode');
+        const customRadiusWrapper = document.getElementById('custom-radius-wrapper');
+        const customRadiusInput = document.getElementById('custom-radius-value');
+        const radiusValueField = document.getElementById('radius-value-field');
+
+        if (radiusSelect && customRadiusWrapper && customRadiusInput && radiusValueField) {
+            const syncRadiusUi = () => {
+                const isCustom = radiusSelect.value === 'custom';
+                customRadiusWrapper.hidden = !isCustom;
+                customRadiusInput.required = isCustom;
+
+                if (radiusSelect.value === 'none') {
+                    radiusValueField.value = 'none';
+                } else if (isCustom) {
+                    radiusValueField.value = customRadiusInput.value;
+                } else {
+                    radiusValueField.value = radiusSelect.value;
+                }
+            };
+
+            radiusSelect.addEventListener('change', syncRadiusUi);
+            customRadiusInput.addEventListener('input', syncRadiusUi);
+            document.getElementById('radius-form')?.addEventListener('submit', syncRadiusUi);
+            syncRadiusUi();
+        }
+
+        const initMapPicker = (picker) => {
+            if (!window.L || picker.dataset.initialized === 'true') {
+                return;
+            }
+
+            const mapId = picker.dataset.mapId;
+            const latitudeInput = document.getElementById(picker.dataset.latInputId);
+            const longitudeInput = document.getElementById(picker.dataset.lngInputId);
+            const hasInitial = picker.dataset.hasInitial === 'true';
+            const defaultLat = parseFloat(picker.dataset.defaultLat || '40.4168');
+            const defaultLng = parseFloat(picker.dataset.defaultLng || '-3.7038');
+            const initialLat = parseFloat(picker.dataset.initialLat);
+            const initialLng = parseFloat(picker.dataset.initialLng);
+            const startLat = hasInitial && Number.isFinite(initialLat) ? initialLat : defaultLat;
+            const startLng = hasInitial && Number.isFinite(initialLng) ? initialLng : defaultLng;
+
+            const mapElement = document.getElementById(mapId);
+            if (!mapElement || !latitudeInput || !longitudeInput) {
+                return;
+            }
+
+            const map = L.map(mapId).setView([startLat, startLng], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors',
+            }).addTo(map);
+
+            picker._leafletMap = map;
+
+            let marker = null;
+
+            const placeMarker = (lat, lng, updateInputs = true) => {
+                if (marker) {
+                    marker.setLatLng([lat, lng]);
+                } else {
+                    marker = L.marker([lat, lng]).addTo(map);
+                }
+
+                if (updateInputs) {
+                    latitudeInput.value = lat.toFixed(6);
+                    longitudeInput.value = lng.toFixed(6);
+                }
+            };
+
+            // expose helper to external code (e.g., 'Usar mi posición' button)
+            picker._placeMarker = placeMarker;
+
+            if (hasInitial && Number.isFinite(initialLat) && Number.isFinite(initialLng)) {
+                placeMarker(initialLat, initialLng, true);
+            } else {
+                map.setView([startLat, startLng], 13);
+            }
+
+            map.on('click', (event) => {
+                placeMarker(event.latlng.lat, event.latlng.lng, true);
+            });
+
+            picker.dataset.initialized = 'true';
+        };
+
+        document.querySelectorAll('.js-map-picker').forEach(initMapPicker);
+
+        // 'Usar mi posición' handler for header modal
+        const useMyLocationBtn = document.getElementById('use-my-location-btn');
+        const locationStatus = document.getElementById('location-status');
+        if (useMyLocationBtn) {
+            useMyLocationBtn.addEventListener('click', () => {
+                locationStatus.textContent = 'Obteniendo ubicación…';
+                if (!navigator.geolocation) {
+                    locationStatus.textContent = 'Geolocalización no soportada por este navegador.';
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+
+                    // find visible picker inside modal
+                    const picker = document.querySelector('#location-modal .js-map-picker');
+                    if (!picker) {
+                        locationStatus.textContent = 'Error interno: no se encontró el mapa.';
+                        return;
+                    }
+
+                    // ensure map is ready
+                    if (picker._leafletMap && picker._placeMarker) {
+                        picker._placeMarker(lat, lng, true);
+                        picker._leafletMap.setView([lat, lng], 13);
+                        // update hidden inputs
+                        const latInput = document.getElementById(picker.dataset.latInputId);
+                        const lngInput = document.getElementById(picker.dataset.lngInputId);
+                        if (latInput && lngInput) {
+                            latInput.value = lat.toFixed(6);
+                            lngInput.value = lng.toFixed(6);
+                        }
+                        locationStatus.textContent = 'Ubicación fijada. Pulsa "Guardar ubicación" para aplicar.';
+                    } else {
+                        locationStatus.textContent = 'El mapa aún no está listo. Intenta de nuevo.';
+                    }
+                }, (err) => {
+                    if (err.code === 1) {
+                        locationStatus.textContent = 'Permiso denegado para obtener ubicación.';
+                    } else if (err.code === 2) {
+                        locationStatus.textContent = 'No se pudo obtener la ubicación del dispositivo.';
+                    } else if (err.code === 3) {
+                        locationStatus.textContent = 'Tiempo de espera agotado al obtener la ubicación.';
+                    } else {
+                        locationStatus.textContent = 'Error al obtener la ubicación.';
+                    }
+                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            });
+        }
+    });
+</script>

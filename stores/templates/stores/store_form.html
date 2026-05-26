@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 30px auto;
+        background: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: bold;
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+
+    textarea {
+        resize: vertical;
+        min-height: 120px;
+    }
+
+    .map-section {
+        margin-bottom: 20px;
+    }
+
+    .map-section-title {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: bold;
+    }
+
+    .map-note {
+        color: #666;
+        font-size: 13px;
+        margin-top: 8px;
+    }
+
+    .map-error-summary {
+        margin-bottom: 12px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: background-color 0.3s;
+    }
+
+    button:hover {
+        background-color: #45a049;
+    }
+
+    .form-footer {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .form-footer a {
+        color: #666;
+        text-decoration: none;
+        margin: 0 10px;
+    }
+
+    .form-footer a:hover {
+        color: #4caf50;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>{{ title }}</h1>
+
+    {% if form.non_field_errors %}
+        <ul class="errorlist">
+            {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        {% for field in form %}
+            {% if not field.is_hidden %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <ul class="errorlist">
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        {{ form.latitud }}
+        {{ form.longitud }}
+
+        {% if form.latitud.errors or form.longitud.errors %}
+            <ul class="errorlist map-error-summary">
+                {% for error in form.latitud.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+                {% for error in form.longitud.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="map-section">
+            <span class="map-section-title">Ubicacion en mapa</span>
+            <div class="map-picker js-map-picker" data-map-id="store-location-map" data-lat-input-id="id_latitud" data-lng-input-id="id_longitud" data-has-initial="{% if form.latitud.value and form.longitud.value %}true{% else %}false{% endif %}" data-initial-lat="{% if form.latitud.value %}{{ form.latitud.value }}{% endif %}" data-initial-lng="{% if form.longitud.value %}{{ form.longitud.value }}{% endif %}" data-default-lat="40.4168" data-default-lng="-3.7038">
+                <div id="store-location-map" class="map-canvas"></div>
+            </div>
+            <p class="map-note">Haz clic sobre el mapa para guardar la ubicacion de la tienda.</p>
+        </div>
+
+        <button type="submit">Guardar</button>
+    </form>
+
+    <div class="form-footer">
+        {% if store %}
+            <a href="{% url 'store_detail' store.pk %}">← Volver</a>
+        {% else %}
+            <a href="{% url 'store_list_admin' %}">← Volver</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

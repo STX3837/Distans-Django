@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}{{ store.nombre }} - Productos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .catalog-page { width: min(1200px, calc(100% - 40px)); margin: 30px auto 60px; }
+    .store-header { margin-bottom: 16px; }
+    .store-subtitle { color: #666; margin-top: 4px; }
+    .search-banner {
+        margin: 14px 0 18px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: #eef7ee;
+        color: #1b5e20;
+        font-weight: 600;
+    }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .product-card {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        color: inherit;
+        min-height: 140px;
+    }
+    .product-card:hover { transform: translateY(-2px); transition: transform 0.18s ease; }
+    .product-image {
+        flex: 0 0 120px;
+        width: 120px;
+        min-height: 120px;
+        border-radius: 6px;
+        background: #f4f4f4;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .product-image img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .product-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .product-info h3 { margin: 0 0 6px; }
+    .product-info p { margin: 0; color: #666; }
+    .product-price { font-weight: bold; margin-top: 8px; }
+    .product-actions { flex: 0 0 140px; display:flex; flex-direction:column; align-items:flex-end; justify-content:center; }
+    .qty-input { width:68px; padding:6px 8px; border-radius:4px; border:1px solid #ddd; }
+    .add-btn { padding:8px 12px; background:#4caf50; color:#fff; border-radius:6px; border:none; cursor:pointer; }
+    .add-btn:hover { background:#419544 }
+    .empty-message { padding: 20px; border-radius: 8px; background: #fff; color: #666; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="catalog-page">
+    <div class="store-header">
+        <h1>Productos de {{ store.nombre }}</h1>
+        <p class="store-subtitle">Catálogo de esta tienda</p>
+    </div>
+
+    {% if geo_search.has_location and geo_search.has_radius %}
+        <div class="search-banner">Mostrando solo productos dentro de {{ geo_search.radius_label }} de tu ubicacion seleccionada.</div>
+    {% elif geo_search.has_location %}
+        <div class="search-banner">Tienes una ubicacion seleccionada, pero no se aplica ningun radio.</div>
+    {% endif %}
+
+    {% if products %}
+        <div class="product-grid">
+            {% for product in products %}
+                <div class="product-card">
+                    <div class="product-image">
+                        {% if product.imagen %}
+                            <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
+                        {% else %}
+                            <div style="color:#999; font-size:14px; text-align:center; padding:10px;">Sin imagen</div>
+                        {% endif %}
+                    </div>
+                    <div class="product-info">
+                        <h3><a href="{% url 'product_detail' product.pk %}">{{ product.nombre }}</a></h3>
+                        <p>{{ store.nombre }}</p>
+                        <div class="product-price">
+                            {% if product.en_oferta and product.precio_oferta %}
+                                <span style="text-decoration: line-through; color: #999">{{ product.precio }}€</span>
+                                <span style="color: #e74c3c"> {{ product.precio_oferta }}€</span>
+                            {% else %}
+                                {{ product.precio }}€
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="product-actions">
+                        <form method="post" action="{% url 'add_to_cart' product_pk=product.pk %}">
+                            {% csrf_token %}
+                            <input type="number" name="cantidad" min="1" value="1" class="qty-input" aria-label="Cantidad">
+                            <button type="submit" class="add-btn">Añadir al carrito</button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% elif geo_search.has_location and geo_search.has_radius and not store_in_radius %}
+        <div class="empty-message">Esta tienda esta fuera del radio seleccionado.</div>
+    {% else %}
+        <div class="empty-message">Esta tienda no tiene productos disponibles ahora mismo.</div>
+    {% endif %}
+</div>
+{% endblock %}

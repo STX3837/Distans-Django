@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .product-form-page {
+        width: min(1100px, calc(100% - 40px));
+        margin: 30px auto 60px;
+    }
+
+    .product-form-page h1 {
+        font-size: 34px;
+        margin-bottom: 18px;
+    }
+
+    .form-shell {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 28px;
+        background: #c9f8c1;
+        padding: 28px;
+        border-radius: 8px;
+        box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    .preview-box {
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 8px;
+        padding: 20px;
+        min-height: 220px;
+    }
+
+    .preview-box img {
+        width: 100%;
+        max-width: 260px;
+        display: block;
+        margin: 0 auto;
+        object-fit: cover;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        margin-top: 18px;
+    }
+
+    .btn-danger {
+        background: #e53935;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-danger:hover {
+        background: #c62828;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: #f0f0f0;
+        color: #333;
+        text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+        background: #e0e0e0;
+        text-decoration: none;
+    }
+
+    .field-list {
+        display: grid;
+        gap: 14px;
+    }
+
+    .field-list .form-group {
+        margin-bottom: 0;
+    }
+
+    .inline-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+
+    .checkboxes {
+        display: grid;
+        gap: 10px;
+    }
+
+    .checkboxes label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: bold;
+    }
+
+    .checkboxes input {
+        width: 18px;
+        height: 18px;
+    }
+
+    .delete-form {
+        margin-right: auto;
+    }
+
+    @media (max-width: 900px) {
+        .form-shell {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="product-form-page">
+    <h1>{{ title }}</h1>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-shell">
+            <div class="field-list">
+                <div class="form-group">
+                    <label for="{{ form.nombre.id_for_label }}">Nombre</label>
+                    {{ form.nombre }}
+                    {{ form.nombre.errors }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.descripcion.id_for_label }}">Descripción</label>
+                    {{ form.descripcion }}
+                    {{ form.descripcion.errors }}
+                </div>
+
+                <div class="inline-row">
+                    <div class="form-group">
+                        <label for="{{ form.precio.id_for_label }}">Precio</label>
+                        {{ form.precio }}
+                        {{ form.precio.errors }}
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ form.precio_oferta.id_for_label }}">Precio en oferta</label>
+                        {{ form.precio_oferta }}
+                        {{ form.precio_oferta.errors }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.en_oferta.id_for_label }}">En oferta</label>
+                    {{ form.en_oferta }}
+                    {{ form.en_oferta.errors }}
+                </div>
+
+                <div class="inline-row">
+                    <div class="form-group">
+                        <label for="{{ form.marca.id_for_label }}">Marca</label>
+                        {{ form.marca }}
+                        {{ form.marca.errors }}
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ form.categoria.id_for_label }}">Categoría</label>
+                        {{ form.categoria }}
+                        {{ form.categoria.errors }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.imagen.id_for_label }}">Imagen</label>
+                    {{ form.imagen }}
+                    {{ form.imagen.errors }}
+                </div>
+
+                <div class="checkboxes">
+                    <label for="{{ form.destacado.id_for_label }}">{{ form.destacado }} Destacado</label>
+                    <label for="{{ form.disponible.id_for_label }}">{{ form.disponible }} Disponible</label>
+                    <div class="form-group">
+                        <label for="{{ form.stock.id_for_label }}">Stock</label>
+                        {{ form.stock }}
+                        {{ form.stock.errors }}
+                    </div>
+                </div>
+
+                {% if form.non_field_errors %}
+                    {{ form.non_field_errors }}
+                {% endif %}
+
+                <div class="form-actions">
+                    {% if product %}
+                        <button type="submit" formaction="{% url 'product_delete' store.pk product.pk %}" class="btn btn-danger">Eliminar</button>
+                    {% endif %}
+                    <a class="btn btn-secondary" href="{% url 'store_detail' store.pk %}">Cancelar</a>
+                    <button type="submit">{{ submit_label }}</button>
+                </div>
+            </div>
+
+            <div class="preview-box">
+                <h2>Imagen</h2>
+                {% if product and product.imagen %}
+                    <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
+                {% else %}
+                    <p>Selecciona una imagen para el producto.</p>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
