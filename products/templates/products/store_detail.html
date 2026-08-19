@@ -121,6 +121,7 @@
     .store-actions {
         display: flex;
         justify-content: flex-end;
+        gap: 12px;
         margin-top: 20px;
     }
 
@@ -136,6 +137,20 @@
     .create-button:hover {
         text-decoration: none;
         background: #3f9142;
+    }
+
+    .stock-button {
+        padding: 12px 18px;
+        border-radius: 6px;
+        background: #1f4ea3;
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+    }
+
+    .stock-button:hover {
+        text-decoration: none;
+        background: #183d81;
     }
 
     .empty-state {
@@ -200,6 +215,7 @@
     {% endif %}
 
     <div class="store-actions">
+        <a class="stock-button" href="{% url 'store_stock_edit' store.pk %}">Editar stock</a>
         <a class="create-button" href="{% url 'product_create' store.pk %}">Añadir producto</a>
     </div>
 </div>

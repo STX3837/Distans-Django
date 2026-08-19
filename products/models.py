@@ -56,6 +56,9 @@ class Producto(models.Model):
     def clean(self):
         """Validación de precios"""
         errors = {}
+
+        if self.stock is not None and self.stock < 0:
+            errors['stock'] = 'El stock no puede ser negativo.'
         
         # Validar que precio_oferta, si existe, sea mayor que 0
         if self.precio_oferta is not None and self.precio_oferta <= 0:

@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.forms import modelformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -9,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 from users.models import User
 from carts.models import Carrito, ProductoCarrito
 
-from .forms import ProductoForm
+from .forms import ProductoForm, ProductoStockForm
 from .models import Producto
 from stores.models import Tienda
 from stores.utils import filter_products_by_geo, get_geo_search_state, store_is_within_radius
@@ -110,6 +111,35 @@ def store_detail(request, pk):
 		{
 			'store': tienda,
 			'products': productos,
+		},
+	)
+
+
+@login_required
+def store_stock_edit(request, pk):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda = _get_store_for_user(request.user, pk)
+	productos_qs = tienda.productos.order_by('nombre')
+	StockFormSet = modelformset_factory(Producto, form=ProductoStockForm, extra=0)
+
+	if request.method == 'POST':
+		formset = StockFormSet(request.POST, queryset=productos_qs)
+		if formset.is_valid():
+			formset.save()
+			messages.success(request, 'El stock se ha actualizado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		formset = StockFormSet(queryset=productos_qs)
+
+	return render(
+		request,
+		'products/store_stock_edit.html',
+		{
+			'store': tienda,
+			'formset': formset,
+			'products': productos_qs,
 		},
 	)
 

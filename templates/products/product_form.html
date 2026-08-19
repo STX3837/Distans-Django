@@ -169,11 +169,6 @@
                 <div class="checkboxes">
                     <label for="{{ form.destacado.id_for_label }}">{{ form.destacado }} Destacado</label>
                     <label for="{{ form.disponible.id_for_label }}">{{ form.disponible }} Disponible</label>
-                    <div class="form-group">
-                        <label for="{{ form.stock.id_for_label }}">Stock</label>
-                        {{ form.stock }}
-                        {{ form.stock.errors }}
-                    </div>
                 </div>
 
                 {% if form.non_field_errors %}

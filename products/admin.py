@@ -1,5 +1,8 @@
 from django.contrib import admin
+from django.db import models
+
 from .models import Producto
+from .widgets import StockStepperWidget
 
 
 @admin.register(Producto)
@@ -8,6 +11,9 @@ class ProductoAdmin(admin.ModelAdmin):
     list_filter = ('disponible', 'destacado', 'en_oferta', 'categoria', 'tienda')
     search_fields = ('nombre', 'descripcion', 'marca')
     readonly_fields = ('created_at', 'updated_at')
+    formfield_overrides = {
+        models.IntegerField: {'widget': StockStepperWidget},
+    }
     fieldsets = (
         ('Información básica', {
             'fields': ('nombre', 'descripcion', 'marca', 'categoria', 'imagen', 'tienda')

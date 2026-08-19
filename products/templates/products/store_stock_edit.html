@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Editar stock - {{ store.nombre }} - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stock-page {
+        width: min(1200px, calc(100% - 40px));
+        margin: 30px auto 60px;
+    }
+
+    .stock-page h1 {
+        font-size: 34px;
+        margin-bottom: 10px;
+    }
+
+    .stock-subtitle {
+        margin-bottom: 24px;
+        color: #3b3b3b;
+    }
+
+    .stock-panel {
+        background: #d0d0d0;
+        border-radius: 10px;
+        padding: 18px;
+        box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    .stock-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 20px;
+        background: #bfbfbf;
+        border-radius: 8px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        min-height: 92px;
+    }
+
+    .stock-product {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .stock-product img,
+    .stock-product-placeholder {
+        width: 62px;
+        height: 62px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex: 0 0 62px;
+        background: #f2f2f2;
+    }
+
+    .stock-product-name {
+        font-size: 19px;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .stock-product-meta {
+        font-size: 14px;
+        color: #555;
+        margin-top: 4px;
+    }
+
+    .stock-row .stock-stepper {
+        transform: scale(1.08);
+        transform-origin: center right;
+    }
+
+    .stock-panel .errorlist {
+        margin: 6px 0 0;
+        padding-left: 18px;
+        color: #b71c1c;
+    }
+
+    .stock-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 26px;
+    }
+
+    .btn-secondary {
+        background: #f0f0f0;
+        color: #333;
+        text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+        background: #e0e0e0;
+        text-decoration: none;
+    }
+
+    .empty-state {
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+    }
+
+    @media (max-width: 720px) {
+        .stock-row {
+            grid-template-columns: 1fr;
+            justify-items: stretch;
+        }
+
+        .stock-row .stock-stepper {
+            justify-content: flex-start;
+            transform: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stock-page">
+    <h1>Editar stock {{ store.nombre }}</h1>
+    <div class="stock-subtitle">Ajusta el stock de cada producto con el teclado o con los botones - y +.</div>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        {% if formset.non_form_errors %}
+            <div class="empty-state">{{ formset.non_form_errors }}</div>
+        {% endif %}
+
+        {% if formset.forms %}
+            <div class="stock-panel">
+                {% for form in formset %}
+                    <div class="stock-row">
+                        <div class="stock-product">
+                            {% if form.instance.imagen %}
+                                <img src="{{ form.instance.imagen.url }}" alt="{{ form.instance.nombre }}">
+                            {% else %}
+                                <div class="stock-product-placeholder"></div>
+                            {% endif %}
+                            <div>
+                                <div class="stock-product-name">{{ form.instance.nombre }}</div>
+                                <div class="stock-product-meta">Stock actual: {{ form.instance.stock }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            {{ form.id }}
+                            {{ form.stock }}
+                            {{ form.stock.errors }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No hay productos en esta tienda todavía.</p>
+            </div>
+        {% endif %}
+
+        <div class="stock-actions">
+            <a class="btn btn-secondary" href="{% url 'store_detail' store.pk %}">Cancelar</a>
+            <button type="submit">Guardar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
