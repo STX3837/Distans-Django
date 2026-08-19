@@ -1,7 +1,7 @@
 from django import forms
-from django.core.exceptions import ValidationError
 
 from .models import Producto
+from .widgets import StockStepperWidget
 
 
 class ProductoForm(forms.ModelForm):
@@ -18,7 +18,6 @@ class ProductoForm(forms.ModelForm):
             'imagen',
             'destacado',
             'disponible',
-            'stock',
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 4}),
@@ -39,3 +38,18 @@ class ProductoForm(forms.ModelForm):
             self.add_error('precio_oferta', 'El precio en oferta no puede ser mayor que el precio normal.')
         
         return cleaned_data
+
+
+class ProductoStockForm(forms.ModelForm):
+    class Meta:
+        model = Producto
+        fields = ['stock']
+        widgets = {
+            'stock': StockStepperWidget(),
+        }
+
+    def clean_stock(self):
+        stock = self.cleaned_data.get('stock')
+        if stock is not None and stock < 0:
+            raise forms.ValidationError('El stock no puede ser negativo.')
+        return stock
