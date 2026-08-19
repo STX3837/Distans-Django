@@ -98,3 +98,27 @@ Abrir el shell de Django:
 ```bash
 docker compose exec web python manage.py shell
 ```
+
+Limpiar carritos de invitados con sesión expirada/inexistente:
+
+```bash
+docker compose exec web python manage.py cleanup_guest_carts
+```
+
+Probar la limpieza sin borrar datos (`dry-run`):
+
+```bash
+docker compose exec web python manage.py cleanup_guest_carts --dry-run
+```
+
+Limpieza periodica automatica de carritos invitados:
+
+- Se ejecuta con el servicio `cart_cleanup` de Docker Compose.
+- Intervalo por defecto: cada 24 horas (`CART_CLEANUP_INTERVAL_SECONDS=86400`).
+- Para cambiar el intervalo, edita ese valor en `docker-compose.yml`.
+
+Ver logs del limpiador periodico:
+
+```bash
+docker compose logs -f cart_cleanup
+```

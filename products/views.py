@@ -16,6 +16,45 @@ from stores.models import Tienda
 from stores.utils import filter_products_by_geo, get_geo_search_state, store_is_within_radius
 
 
+def _ensure_session_key(request):
+	if not request.session.session_key:
+		request.session.create()
+	return request.session.session_key
+
+
+def _get_or_create_cart(request):
+	if request.user.is_authenticated:
+		cart, _ = Carrito.objects.get_or_create(
+			usuario=request.user,
+			defaults={'sesion': _ensure_session_key(request)},
+		)
+		return cart
+
+	session_key = _ensure_session_key(request)
+	cart, _ = Carrito.objects.get_or_create(usuario=None, sesion=session_key)
+	return cart
+
+
+def _has_quantity_plan(producto):
+	"""Mientras no exista un campo formal de plan, se permite gestionar cantidades por defecto."""
+	vendedor = getattr(getattr(producto, 'tienda', None), 'vendedor', None)
+	plan = getattr(vendedor, 'plan', None)
+	if plan is None:
+		return True
+	return str(plan).lower() in {'premium', 'pro', 'plus', 'business'}
+
+
+def _is_product_orderable(producto):
+	return bool(producto.disponible and producto.stock > 0)
+
+
+def _to_int(value, default=1):
+	try:
+		return int(value)
+	except (TypeError, ValueError):
+		return default
+
+
 def buyer_or_guest_required(view_func):
 	"""Decorador que requiere estar autenticado como comprador o como invitado."""
 	@wraps(view_func)
@@ -37,8 +76,8 @@ def buyer_or_guest_required(view_func):
 def catalog(request):
 	"""Listado público de productos de todas las tiendas."""
 	geo_state = get_geo_search_state(request)
-	productos = Producto.objects.filter(disponible=True).select_related('tienda')
-	productos = filter_products_by_geo(productos, geo_state).order_by('-destacado', 'nombre')
+	productos = Producto.objects.select_related('tienda')
+	productos = filter_products_by_geo(productos, geo_state).order_by('-disponible', '-destacado', 'nombre')
 	return render(request, 'products/catalog.html', {'products': productos, 'geo_search': geo_state})
 
 
@@ -229,7 +268,7 @@ def product_delete(request, store_pk, pk):
 @buyer_or_guest_required
 def product_detail(request, pk):
 	"""Detalle del producto - accesible para registrados y no registrados"""
-	producto = get_object_or_404(Producto, pk=pk, disponible=True)
+	producto = get_object_or_404(Producto, pk=pk)
 	
 	return render(
 		request,
@@ -244,26 +283,32 @@ def product_detail(request, pk):
 @buyer_or_guest_required
 def add_to_cart(request, product_pk):
 	"""Agregar producto al carrito"""
-	producto = get_object_or_404(Producto, pk=product_pk, disponible=True)
-	cantidad = int(request.POST.get('cantidad', 1))
+	producto = get_object_or_404(Producto, pk=product_pk)
+	cantidad = _to_int(request.POST.get('cantidad', 1), default=1)
 	
 	if cantidad < 1:
 		cantidad = 1
+
+	if not _is_product_orderable(producto):
+		messages.error(request, 'Este producto no está disponible para compra en este momento.')
+		return redirect('product_detail', pk=producto.pk)
 	
 	if request.user.is_authenticated:
 		# Carrito de usuario registrado
-		carrito, created = Carrito.objects.get_or_create(usuario=request.user)
+		carrito = _get_or_create_cart(request)
 		item, created = ProductoCarrito.objects.get_or_create(
 			carrito=carrito,
 			producto=producto,
 			defaults={'cantidad': cantidad}
 		)
 		if not created:
-			item.cantidad += cantidad
+			item.cantidad = min(item.cantidad + cantidad, producto.stock)
 			item.save()
 		messages.success(request, f'{producto.nombre} añadido al carrito.')
 	else:
 		# Carrito de sesión para usuarios no registrados
+		_ensure_session_key(request)
+		_get_or_create_cart(request)
 		if 'cart' not in request.session:
 			request.session['cart'] = {}
 		
@@ -271,7 +316,7 @@ def add_to_cart(request, product_pk):
 		product_id = str(producto.pk)
 		
 		if product_id in cart:
-			cart[product_id]['cantidad'] += cantidad
+			cart[product_id]['cantidad'] = min(cart[product_id]['cantidad'] + cantidad, producto.stock)
 		else:
 			cart[product_id] = {
 				'id': producto.pk,
@@ -279,6 +324,7 @@ def add_to_cart(request, product_pk):
 				'precio': str(producto.precio),
 				'precio_oferta': str(producto.precio_oferta) if producto.precio_oferta else None,
 				'en_oferta': producto.en_oferta,
+				'porcentaje_descuento': str(producto.porcentaje_descuento()) if producto.tiene_oferta() else None,
 				'imagen': producto.imagen.url if producto.imagen else '',
 				'cantidad': cantidad,
 				'tienda_id': producto.tienda.pk,
@@ -290,6 +336,61 @@ def add_to_cart(request, product_pk):
 	return redirect('cart_view')
 
 
+@require_http_methods(["POST"])
+@buyer_or_guest_required
+def update_cart_item(request, product_pk):
+	"""Actualizar cantidad de un producto del carrito."""
+	producto = get_object_or_404(Producto, pk=product_pk)
+	nueva_cantidad = _to_int(request.POST.get('cantidad', 1), default=1)
+
+	if not _has_quantity_plan(producto):
+		messages.warning(request, 'El plan del vendedor no permite gestionar cantidades para este producto.')
+		return redirect('cart_view')
+
+	if nueva_cantidad <= 0:
+		return remove_cart_item(request, product_pk)
+
+	nueva_cantidad = min(nueva_cantidad, max(producto.stock, 1))
+
+	if request.user.is_authenticated:
+		carrito = _get_or_create_cart(request)
+		item = carrito.items.filter(producto=producto).first()
+		if item:
+			item.cantidad = nueva_cantidad
+			item.save(update_fields=['cantidad', 'updated_at'])
+	else:
+		cart = request.session.get('cart', {})
+		product_id = str(producto.pk)
+		if product_id in cart:
+			cart[product_id]['cantidad'] = nueva_cantidad
+			request.session['cart'] = cart
+			request.session.modified = True
+
+	messages.success(request, 'Cantidad actualizada.')
+	return redirect('cart_view')
+
+
+@require_http_methods(["POST"])
+@buyer_or_guest_required
+def remove_cart_item(request, product_pk):
+	"""Eliminar un producto del carrito."""
+	producto = get_object_or_404(Producto, pk=product_pk)
+
+	if request.user.is_authenticated:
+		carrito = _get_or_create_cart(request)
+		carrito.items.filter(producto=producto).delete()
+	else:
+		cart = request.session.get('cart', {})
+		product_id = str(producto.pk)
+		if product_id in cart:
+			del cart[product_id]
+			request.session['cart'] = cart
+			request.session.modified = True
+
+	messages.success(request, 'Producto eliminado del carrito.')
+	return redirect('cart_view')
+
+
 @buyer_or_guest_required
 def cart_view(request):
 	"""Vista del carrito"""
@@ -297,12 +398,12 @@ def cart_view(request):
 	has_items = False
 
 	if request.user.is_authenticated:
-		carrito, created = Carrito.objects.get_or_create(usuario=request.user)
+		carrito = _get_or_create_cart(request)
 		items = carrito.items.select_related('producto').all()
 		total = carrito.total()
 		has_items = items.exists()
 	else:
-		carrito = None
+		carrito = _get_or_create_cart(request)
 		items = []
 		total = Decimal('0.00')
 		
@@ -320,6 +421,7 @@ def cart_view(request):
 
 				session_items.append(
 					{
+						'id': item.get('id'),
 						'nombre': item.get('nombre', ''),
 						'tienda_nombre': item.get('tienda_nombre', ''),
 						'imagen': item.get('imagen', ''),
@@ -327,6 +429,7 @@ def cart_view(request):
 						'precio': item.get('precio'),
 						'precio_oferta': item.get('precio_oferta'),
 						'en_oferta': item.get('en_oferta', False),
+						'porcentaje_descuento': item.get('porcentaje_descuento'),
 						'subtotal': subtotal,
 					}
 				)
