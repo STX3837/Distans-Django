@@ -41,6 +41,7 @@
                 <a href="{% url 'cart_view' %}" class="cart-button" title="Ver carrito">
                     <span class="cart-icon">🛒</span>
                     <span class="cart-text">Carrito</span>
+                    <span class="cart-count">{{ cart_item_count }}</span>
                 </a>
             {% endif %}
 
@@ -261,6 +262,20 @@
 
     .cart-text {
         display: inline;
+    }
+
+    .cart-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 7px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #1b5e20;
+        background: #e8f5e9;
     }
 
     .auth-buttons {

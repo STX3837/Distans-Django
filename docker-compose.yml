@@ -31,5 +31,22 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
 
+  cart_cleanup:
+    build: .
+    container_name: django_cart_cleanup
+    command: sh /app/scripts/run_guest_cart_cleanup.sh
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CART_CLEANUP_INTERVAL_SECONDS=86400
+
 volumes:
   postgres_data:

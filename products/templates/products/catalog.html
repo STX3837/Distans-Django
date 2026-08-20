@@ -25,6 +25,10 @@
         color: inherit;
         min-height: 140px;
     }
+    .product-card.unavailable {
+        opacity: 0.72;
+        background: #fafafa;
+    }
     .product-card:hover { transform: translateY(-2px); transition: transform 0.18s ease; }
     .product-image {
         flex: 0 0 120px;
@@ -42,10 +46,30 @@
     .product-info h3 { margin: 0 0 6px; }
     .product-info p { margin: 0; color: #666; }
     .product-price{ font-weight:bold; margin-top:8px }
+    .price-old { text-decoration:line-through; color:#999; margin-right:6px; }
+    .price-offer { color:#e74c3c; }
+    .discount-chip {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        border-radius: 12px;
+        background: #ffe8e8;
+        color: #b71c1c;
+    }
+    .availability-note {
+        margin-top: 6px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .availability-note.available { color: #1b5e20; }
+    .availability-note.unavailable { color: #b71c1c; }
     .product-actions { flex: 0 0 140px; display:flex; flex-direction:column; align-items:flex-end; justify-content:center; }
     .qty-input { width:68px; padding:6px 8px; border-radius:4px; border:1px solid #ddd; }
     .add-btn { padding:8px 12px; background:#4caf50; color:#fff; border-radius:6px; border:none; cursor:pointer; }
     .add-btn:hover { background:#419544 }
+    .add-btn:disabled { background:#bdbdbd; cursor:not-allowed; }
     .empty-message { margin-top: 20px; padding: 20px; border-radius: 8px; background: #fff; color: #666; }
 </style>
 {% endblock %}
@@ -62,7 +86,7 @@
     {% if products %}
     <div class="product-grid">
         {% for product in products %}
-            <div class="product-card">
+            <div class="product-card {% if not product.disponible or product.stock <= 0 %}unavailable{% endif %}">
                 <div class="product-image">
                     {% if product.imagen %}
                         <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
@@ -74,19 +98,27 @@
                     <h3><a href="{% url 'product_detail' product.pk %}">{{ product.nombre }}</a></h3>
                     <p>{{ product.tienda.nombre }}</p>
                     <div class="product-price">
-                        {% if product.en_oferta and product.precio_oferta %}
-                            <span style="text-decoration:line-through;color:#999">{{ product.precio }}€</span>
-                            <span style="color:#e74c3c"> {{ product.precio_oferta }}€</span>
+                        {% if product.tiene_oferta %}
+                            <span class="price-old">{{ product.precio }}€</span>
+                            <span class="price-offer">{{ product.precio_oferta }}€</span>
+                            <span class="discount-chip">-{{ product.porcentaje_descuento }}%</span>
                         {% else %}
                             {{ product.precio }}€
                         {% endif %}
                     </div>
+                    {% if product.disponible and product.stock > 0 %}
+                        <div class="availability-note available">Disponible ({{ product.stock }} uds.)</div>
+                    {% else %}
+                        <div class="availability-note unavailable">No disponible</div>
+                    {% endif %}
                 </div>
                 <div class="product-actions">
                     <form method="post" action="{% url 'add_to_cart' product_pk=product.pk %}">
                         {% csrf_token %}
-                        <input type="number" name="cantidad" min="1" value="1" class="qty-input" aria-label="Cantidad">
-                        <button type="submit" class="add-btn">Añadir al carrito</button>
+                        <input type="number" name="cantidad" min="1" value="1" max="{{ product.stock|default:1 }}" class="qty-input" aria-label="Cantidad" {% if not product.disponible or product.stock <= 0 %}disabled{% endif %}>
+                        <button type="submit" class="add-btn" {% if not product.disponible or product.stock <= 0 %}disabled{% endif %}>
+                            {% if product.disponible and product.stock > 0 %}Añadir al carrito{% else %}No disponible{% endif %}
+                        </button>
                     </form>
                 </div>
             </div>

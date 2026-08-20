@@ -108,6 +108,7 @@
         display: flex;
         gap: 5px;
         align-items: center;
+        justify-content: flex-end;
     }
 
     .item-quantity input {
@@ -130,6 +131,31 @@
 
     .remove-btn:hover {
         background: #c0392b;
+    }
+
+    .update-btn {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .update-btn:hover {
+        background: #1976d2;
+    }
+
+    .discount-tag {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #ffe8e8;
+        color: #b71c1c;
+        font-size: 12px;
+        font-weight: 700;
     }
 
     .cart-summary {
@@ -243,9 +269,10 @@
                                 <div class="item-name">{{ item.producto.nombre }}</div>
                                 <div class="item-store">{{ item.producto.tienda.nombre }}</div>
                                 <div class="item-price">
-                                    {% if item.producto.en_oferta and item.producto.precio_oferta %}
+                                    {% if item.producto.tiene_oferta %}
                                         <span style="text-decoration: line-through; color: #999;">{{ item.producto.precio }} €</span>
                                         {{ item.producto.precio_oferta }} €
+                                        <div class="discount-tag">-{{ item.producto.porcentaje_descuento }}%</div>
                                     {% else %}
                                         {{ item.producto.precio }} €
                                     {% endif %}
@@ -253,9 +280,16 @@
                             </div>
                             <div class="item-actions">
                                 <div style="font-weight: bold; color: #333;">{{ item.subtotal }} €</div>
-                                <div class="item-quantity">
-                                    <span>Cant: {{ item.cantidad }}</span>
-                                </div>
+                                <form method="post" action="{% url 'update_cart_item' item.producto.pk %}" class="item-quantity">
+                                    {% csrf_token %}
+                                    <span>Cant:</span>
+                                    <input type="number" name="cantidad" min="1" max="{{ item.producto.stock }}" value="{{ item.cantidad }}">
+                                    <button type="submit" class="update-btn">Actualizar</button>
+                                </form>
+                                <form method="post" action="{% url 'remove_cart_item' item.producto.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="remove-btn">Eliminar</button>
+                                </form>
                             </div>
                         </div>
                     {% endfor %}
@@ -274,6 +308,9 @@
                                     {% if item.en_oferta and item.precio_oferta %}
                                         <span style="text-decoration: line-through; color: #999;">{{ item.precio }} €</span>
                                         {{ item.precio_oferta }} €
+                                        {% if item.porcentaje_descuento %}
+                                            <div class="discount-tag">-{{ item.porcentaje_descuento }}%</div>
+                                        {% endif %}
                                     {% else %}
                                         {{ item.precio }} €
                                     {% endif %}
@@ -281,9 +318,16 @@
                             </div>
                             <div class="item-actions">
                                 <div style="font-weight: bold; color: #333;">{{ item.subtotal }} €</div>
-                                <div class="item-quantity">
-                                    <span>Cant: {{ item.cantidad }}</span>
-                                </div>
+                                <form method="post" action="{% url 'update_cart_item' item.id %}" class="item-quantity">
+                                    {% csrf_token %}
+                                    <span>Cant:</span>
+                                    <input type="number" name="cantidad" min="1" value="{{ item.cantidad }}">
+                                    <button type="submit" class="update-btn">Actualizar</button>
+                                </form>
+                                <form method="post" action="{% url 'remove_cart_item' item.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="remove-btn">Eliminar</button>
+                                </form>
                             </div>
                         </div>
                     {% endfor %}
@@ -305,7 +349,7 @@
                     <span>{{ total }} €</span>
                 </div>
                 <button class="checkout-btn">Proceder a compra</button>
-                <a href="javascript:history.back()" class="continue-shopping">Seguir comprando</a>
+                <a href="{% url 'catalog' %}" class="continue-shopping">Seguir comprando</a>
             </div>
         </div>
     {% else %}

@@ -79,6 +79,17 @@
         color: #e74c3c;
     }
 
+    .price-discount {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 4px 10px;
+        border-radius: 14px;
+        background: #ffe8e8;
+        color: #b71c1c;
+        font-size: 14px;
+        font-weight: 700;
+    }
+
     .product-badges {
         display: flex;
         gap: 10px;
@@ -269,7 +280,7 @@
 
             <!-- Badges -->
             <div class="product-badges">
-                {% if product.en_oferta and product.precio_oferta %}
+                {% if product.tiene_oferta %}
                     <span class="badge badge-offer">En oferta - {{ product.porcentaje_descuento }}% OFF</span>
                 {% endif %}
                 {% if product.stock == 0 %}
@@ -283,9 +294,10 @@
 
             <!-- Precio -->
             <div class="product-price">
-                {% if product.en_oferta and product.precio_oferta %}
+                {% if product.tiene_oferta %}
                     <span class="price-old">{{ product.precio }} €</span>
                     <span class="price-offer">{{ product.precio_oferta }} €</span>
+                    <div class="price-discount">Descuento: {{ product.porcentaje_descuento }}%</div>
                 {% else %}
                     {{ product.precio }} €
                 {% endif %}
