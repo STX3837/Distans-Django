@@ -1,40 +1,47 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
+from django.utils import timezone
 from products.models import Producto
 
 
 class Pedido(models.Model):
     ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),
-        ('procesando', 'Procesando'),
-        ('enviado', 'Enviado'),
-        ('entregado', 'Entregado'),
+        ('pendiente_pago', 'Pendiente de pago'),
+        ('completado', 'Completado'),
         ('cancelado', 'Cancelado'),
     ]
 
     METODO_PAGO_CHOICES = [
-        ('tarjeta', 'Tarjeta de crédito'),
-        ('paypal', 'PayPal'),
-        ('transferencia', 'Transferencia bancaria'),
-        ('efectivo', 'Efectivo'),
+        ('contrarrembolso', 'Contrarrembolso'),
+        ('pasarela', 'Pasarela de pago segura'),
     ]
 
     codigo_pedido = models.CharField(max_length=50, unique=True)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pedidos')
-    fecha = models.DateField()
-    estado = models.CharField(
-        max_length=20,
-        choices=ESTADO_CHOICES,
-        default='pendiente'
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='pedidos',
+        blank=True,
+        null=True,
     )
+    fecha = models.DateField(default=timezone.localdate)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente_pago')
+    comprador_nombre = models.CharField(max_length=150)
+    comprador_apellidos = models.CharField(max_length=150)
+    comprador_email = models.EmailField()
+    telefono = models.CharField(max_length=20)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     impuesto = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     coste_entrega = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2)
     metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES)
     direccion_envio = models.TextField()
+    ciudad_envio = models.CharField(max_length=100)
+    codigo_postal_envio = models.CharField(max_length=20)
     direccion_facturacion = models.TextField()
-    telefono = models.CharField(max_length=20)
+    ciudad_facturacion = models.CharField(max_length=100)
+    codigo_postal_facturacion = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

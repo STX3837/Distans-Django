@@ -338,17 +338,21 @@
             <div class="cart-summary">
                 <div class="summary-row">
                     <span>Subtotal</span>
-                    <span>{{ total }} €</span>
+                    <span>{{ summary.subtotal }} €</span>
                 </div>
                 <div class="summary-row">
-                    <span>Envío</span>
-                    <span>Gratis</span>
+                    <span>Descuento</span>
+                    <span>-{{ summary.descuento }} €</span>
                 </div>
                 <div class="summary-row total">
-                    <span>Total</span>
-                    <span>{{ total }} €</span>
+                    <span>Impuestos y envío</span>
+                    <span>{{ summary.impuestos_y_envio }} €</span>
                 </div>
-                <button class="checkout-btn">Proceder a compra</button>
+                <div class="summary-row total">
+                    <span>Total estimado</span>
+                    <span>{{ summary.total }} €</span>
+                </div>
+                <a class="checkout-btn" href="{% url 'checkout_customer' %}" style="display:block; text-align:center; text-decoration:none; line-height:1.2;">Proceder a compra</a>
                 <a href="{% url 'catalog' %}" class="continue-shopping">Seguir comprando</a>
             </div>
         </div>
