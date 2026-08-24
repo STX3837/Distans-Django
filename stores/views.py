@@ -1,6 +1,9 @@
+import json
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from functools import wraps
 from .models import Tienda
@@ -32,6 +35,34 @@ def store_list(request):
 	geo_state = get_geo_search_state(request)
 	tiendas = filter_stores_by_geo(Tienda.objects.all().order_by('nombre'), geo_state)
 	return render(request, 'stores/store_list.html', {'stores': tiendas, 'geo_search': geo_state})
+
+
+@buyer_or_guest_required
+def store_map(request):
+	"""Mapa interactivo con las tiendas filtradas por ubicacion/radio para compradores e invitados."""
+	geo_state = get_geo_search_state(request)
+	tiendas = filter_stores_by_geo(Tienda.objects.filter(latitud__isnull=False, longitud__isnull=False).order_by('nombre'), geo_state)
+
+	store_data = []
+	for tienda in tiendas:
+		store_data.append({
+			'id': tienda.pk,
+			'name': tienda.nombre,
+			'description': tienda.descripcion or '',
+			'address': tienda.direccion or '',
+			'latitude': float(tienda.latitud),
+			'longitude': float(tienda.longitud),
+			'products_url': reverse('store_products', args=[tienda.pk]),
+		})
+
+	context = {
+		'stores': tiendas,
+		'geo_search': geo_state,
+		'stores_map_data': json.dumps(store_data, ensure_ascii=False),
+		'map_center_lat': geo_state['latitude'] if geo_state['latitude'] is not None else 40.4168,
+		'map_center_lng': geo_state['longitude'] if geo_state['longitude'] is not None else -3.7038,
+	}
+	return render(request, 'stores/store_map.html', context)
 
 
 @login_required
