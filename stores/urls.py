@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     # Público
     path('tiendas/', views.store_list, name='store_list'),
+    path('tiendas/mapa/', views.store_map, name='store_map'),
     
     # Admin
     path('gestion/tiendas/', views.store_list_admin, name='store_list_admin'),
