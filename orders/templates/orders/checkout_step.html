@@ -157,6 +157,24 @@
         font-size: 13px;
     }
 
+    .checkout-errors-list {
+        list-style: none;
+        margin: 8px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 6px;
+    }
+
+    .checkout-errors-list li {
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
     .checkout-help {
         margin-top: 10px;
         color: #475467;
@@ -260,7 +278,11 @@
                 {% csrf_token %}
                 {% if form.non_field_errors %}
                     <div class="checkout-errors">
-                        {{ form.non_field_errors }}
+                        <ul class="checkout-errors-list">
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
                     </div>
                 {% endif %}
 
@@ -287,7 +309,13 @@
                             {{ field }}
                         {% endif %}
                         {% if field.errors %}
-                            <div class="checkout-errors">{{ field.errors }}</div>
+                            <div class="checkout-errors">
+                                <ul class="checkout-errors-list">
+                                    {% for error in field.errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         {% endif %}
                     </div>
                 {% endfor %}

@@ -142,3 +142,70 @@ class CheckoutFormDefaultsTests(TestCase):
 		self.assertEqual(buyer_form.initial['telefono'], '611111111')
 		self.assertEqual(address_form.initial['direccion_envio'], 'Avenida 10')
 		self.assertEqual(address_form.initial['ciudad_facturacion'], 'Sevilla')
+
+
+class CheckoutFormValidationTests(TestCase):
+	def test_buyer_form_rejects_invalid_personal_data(self):
+		form = CheckoutBuyerForm(
+			data={
+				'nombre': 'Ana123',
+				'apellidos': 'Pérez',
+				'email': 'correo-no-valido',
+				'telefono': 'abc',
+			}
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn('nombre', form.errors)
+		self.assertIn('email', form.errors)
+		self.assertIn('telefono', form.errors)
+
+	def test_buyer_form_normalizes_valid_data(self):
+		form = CheckoutBuyerForm(
+			data={
+				'nombre': '  Ana  ',
+				'apellidos': '  Pérez   Gómez ',
+				'email': 'ana@example.com',
+				'telefono': '+34 600 123 123',
+			}
+		)
+
+		self.assertTrue(form.is_valid())
+		self.assertEqual(form.cleaned_data['nombre'], 'Ana')
+		self.assertEqual(form.cleaned_data['apellidos'], 'Pérez Gómez')
+		self.assertEqual(form.cleaned_data['telefono'], '+34600123123')
+
+	def test_address_form_rejects_invalid_shipping_data(self):
+		form = CheckoutAddressForm(
+			data={
+				'direccion_envio': '---',
+				'ciudad_envio': 'Madrid22',
+				'codigo_postal_envio': '99999',
+				'direccion_facturacion': 'Calle Falsa',
+				'ciudad_facturacion': 'Sevilla',
+				'codigo_postal_facturacion': '41001',
+			}
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn('direccion_envio', form.errors)
+		self.assertIn('ciudad_envio', form.errors)
+		self.assertIn('codigo_postal_envio', form.errors)
+
+	def test_address_form_accepts_and_normalizes_valid_data(self):
+		form = CheckoutAddressForm(
+			data={
+				'direccion_envio': '  Calle Mayor   1  ',
+				'ciudad_envio': '  Madrid ',
+				'codigo_postal_envio': '28001',
+				'direccion_facturacion': ' Avenida de la Constitución 25 ',
+				'ciudad_facturacion': ' Sevilla ',
+				'codigo_postal_facturacion': '41001',
+			}
+		)
+
+		self.assertTrue(form.is_valid())
+		self.assertEqual(form.cleaned_data['direccion_envio'], 'Calle Mayor 1')
+		self.assertEqual(form.cleaned_data['ciudad_envio'], 'Madrid')
+		self.assertEqual(form.cleaned_data['direccion_facturacion'], 'Avenida de la Constitución 25')
+		self.assertEqual(form.cleaned_data['ciudad_facturacion'], 'Sevilla')
