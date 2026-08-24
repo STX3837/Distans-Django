@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Pedido completado - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .complete-shell {
+        width: min(980px, calc(100% - 40px));
+        margin: 40px auto 64px;
+    }
+
+    .complete-card {
+        padding: 32px;
+        border-radius: 28px;
+        background: linear-gradient(135deg, #0f172a 0%, #123b2e 58%, #1f6f5b 100%);
+        color: #fff;
+        box-shadow: 0 28px 64px rgba(15, 23, 42, 0.24);
+    }
+
+    .complete-card h1 {
+        margin: 0 0 12px;
+        font-size: clamp(28px, 3vw, 42px);
+    }
+
+    .complete-card p {
+        margin: 0 0 18px;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .complete-grid {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+    }
+
+    .complete-tile {
+        padding: 18px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .complete-tile strong {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .complete-link {
+        display: inline-flex;
+        margin-top: 24px;
+        padding: 14px 18px;
+        border-radius: 14px;
+        background: #fff;
+        color: #0f172a;
+        text-decoration: none;
+        font-weight: 800;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="complete-shell">
+    <section class="complete-card">
+        <h1>Pedido confirmado</h1>
+        <p>La compra se ha cerrado correctamente y el pago se ha validado con éxito en un entorno seguro.</p>
+
+        {% if order %}
+            <div class="complete-grid">
+                <div class="complete-tile">
+                    <strong>Código de pedido</strong>
+                    <div>{{ order.codigo_pedido }}</div>
+                </div>
+                <div class="complete-tile">
+                    <strong>Total</strong>
+                    <div>{{ order.total }} €</div>
+                </div>
+                <div class="complete-tile">
+                    <strong>Método de pago</strong>
+                    <div>{{ order.get_metodo_pago_display }}</div>
+                </div>
+                <div class="complete-tile">
+                    <strong>Estado</strong>
+                    <div>{{ order.get_estado_display }}</div>
+                </div>
+            </div>
+        {% endif %}
+
+        <a href="{% url 'catalog' %}" class="complete-link">Seguir comprando</a>
+    </section>
+</div>
+{% endblock %}

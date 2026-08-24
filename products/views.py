@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 
 from users.models import User
 from carts.models import Carrito, ProductoCarrito
+from orders.utils import build_cart_snapshot
 
 from .forms import ProductoForm, ProductoStockForm
 from .models import Producto
@@ -396,16 +397,16 @@ def cart_view(request):
 	"""Vista del carrito"""
 	session_items = []
 	has_items = False
+	total = Decimal('0.00')
+	cart_summary = build_cart_snapshot(request)
 
 	if request.user.is_authenticated:
 		carrito = _get_or_create_cart(request)
 		items = carrito.items.select_related('producto').all()
-		total = carrito.total()
 		has_items = items.exists()
 	else:
 		carrito = _get_or_create_cart(request)
 		items = []
-		total = Decimal('0.00')
 		
 		if 'cart' in request.session:
 			cart_data = request.session['cart']
@@ -444,7 +445,8 @@ def cart_view(request):
 			'items': items,
 			'session_items': session_items,
 			'has_items': has_items,
-			'total': total,
+			'summary': cart_summary,
+			'total': cart_summary['total'],
 		},
 	)
 
