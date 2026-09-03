@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -109,15 +110,61 @@ class CheckoutFlowTests(TestCase):
 
 		response = self.client.post(
 			reverse('checkout_payment'),
-			{'metodo_pago': 'pasarela'},
+			{'metodo_pago': 'contrarrembolso'},
 		)
 		self.assertRedirects(response, reverse('checkout_complete'))
 
 		pedido = Pedido.objects.get()
 		self.assertEqual(pedido.estado, 'completado')
+		self.assertFalse(pedido.stock_reservado)
 		self.assertEqual(pedido.total, Decimal('193.60'))
 		self.assertEqual(pedido.items.count(), 1)
 		self.assertEqual(pedido.items.first().precio_unitario, Decimal('80.00'))
+		self.product.refresh_from_db()
+		self.assertEqual(self.product.stock, 8)
+
+	@patch('orders.views.create_stripe_checkout_session')
+	def test_checkout_payment_redirects_to_stripe_for_gateway(self, mock_create_session):
+		class SessionStub:
+			url = 'https://checkout.stripe.com/pay/test-session'
+
+		mock_create_session.return_value = SessionStub()
+		self._set_guest_cart()
+
+		self.client.post(
+			reverse('checkout_customer'),
+			{
+				'nombre': 'Ana',
+				'apellidos': 'Pérez',
+				'email': 'ana@example.com',
+				'telefono': '600123123',
+			},
+		)
+		self.client.post(
+			reverse('checkout_address'),
+			{
+				'direccion_envio': 'Calle Mayor 1',
+				'ciudad_envio': 'Madrid',
+				'codigo_postal_envio': '28001',
+				'direccion_facturacion': 'Calle Mayor 1',
+				'ciudad_facturacion': 'Madrid',
+				'codigo_postal_facturacion': '28001',
+			},
+		)
+
+		response = self.client.post(
+			reverse('checkout_payment'),
+			{'metodo_pago': 'pasarela'},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(response.url, 'https://checkout.stripe.com/pay/test-session')
+
+		pedido = Pedido.objects.get()
+		self.assertEqual(pedido.estado, 'pendiente_pago')
+		self.assertTrue(pedido.stock_reservado)
+		self.product.refresh_from_db()
+		self.assertEqual(self.product.stock, 8)
 
 
 class CheckoutFormDefaultsTests(TestCase):

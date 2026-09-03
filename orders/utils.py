@@ -1,4 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
+
+import stripe
+from django.conf import settings
 from django.db import transaction
 from django.utils.crypto import get_random_string
 
@@ -120,6 +123,20 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
     total = cart_snapshot['total']
 
     with transaction.atomic():
+        # Lock rows to prevent concurrent purchases from overselling inventory.
+        product_ids = [line['producto'].pk for line in cart_snapshot['items']]
+        product_map = {
+            p.pk: p
+            for p in Producto.objects.select_for_update().filter(pk__in=product_ids)
+        }
+
+        for line in cart_snapshot['items']:
+            producto = product_map.get(line['producto'].pk)
+            if not producto:
+                raise ValueError('Uno de los productos ya no existe.')
+            if producto.stock < line['cantidad']:
+                raise ValueError(f"Stock insuficiente para {producto.nombre}.")
+
         pedido = Pedido.objects.create(
             codigo_pedido=_build_order_code(),
             usuario=user if user and user.is_authenticated else None,
@@ -140,12 +157,17 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             ciudad_facturacion=address_data['ciudad_facturacion'],
             codigo_postal_facturacion=address_data['codigo_postal_facturacion'],
             estado='pendiente_pago',
+            stock_reservado=True,
         )
 
         for line in cart_snapshot['items']:
+            producto = product_map[line['producto'].pk]
+            producto.stock -= line['cantidad']
+            producto.save(update_fields=['stock', 'updated_at'])
+
             ProductoPedido.objects.create(
                 pedido=pedido,
-                producto=line['producto'],
+                producto=producto,
                 cantidad=line['cantidad'],
                 precio_unitario=line['precio_unitario'],
                 total=line['subtotal_neto'],
@@ -161,3 +183,71 @@ def process_secure_payment(pedido, payment_method):
         'reference': reference,
         'message': 'La transacción se ha validado correctamente en un entorno seguro.',
     }
+
+
+def release_order_stock_reservation(pedido):
+    if not pedido.stock_reservado:
+        return
+
+    with transaction.atomic():
+        pedido = Pedido.objects.select_for_update().prefetch_related('items__producto').get(pk=pedido.pk)
+        if not pedido.stock_reservado:
+            return
+
+        for item in pedido.items.all():
+            producto = item.producto
+            producto.stock += item.cantidad
+            producto.save(update_fields=['stock', 'updated_at'])
+
+        pedido.stock_reservado = False
+        pedido.estado = 'cancelado'
+        pedido.save(update_fields=['stock_reservado', 'estado', 'updated_at'])
+
+
+def mark_order_as_paid(pedido):
+    pedido.estado = 'completado'
+    pedido.stock_reservado = False
+    pedido.save(update_fields=['estado', 'stock_reservado', 'updated_at'])
+
+
+def create_stripe_checkout_session(request, pedido):
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError('Stripe no está configurado. Define STRIPE_SECRET_KEY en el entorno.')
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    session = stripe.checkout.Session.create(
+        mode='payment',
+        success_url=request.build_absolute_uri('/checkout/pago/exito/') + '?session_id={CHECKOUT_SESSION_ID}',
+        cancel_url=request.build_absolute_uri(f'/checkout/pago/cancelado/?pedido_id={pedido.pk}'),
+        customer_email=pedido.comprador_email,
+        metadata={
+            'pedido_id': str(pedido.pk),
+            'codigo_pedido': pedido.codigo_pedido,
+        },
+        line_items=[
+            {
+                'price_data': {
+                    'currency': 'eur',
+                    'product_data': {
+                        'name': f'Pedido {pedido.codigo_pedido}',
+                        'description': f'Compra en DISTANS ({pedido.items.count()} productos).',
+                    },
+                    'unit_amount': int((pedido.total * 100).to_integral_value()),
+                },
+                'quantity': 1,
+            }
+        ],
+    )
+
+    pedido.stripe_checkout_session_id = session.id
+    pedido.save(update_fields=['stripe_checkout_session_id', 'updated_at'])
+    return session
+
+
+def get_stripe_session(session_id):
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError('Stripe no está configurado. Define STRIPE_SECRET_KEY en el entorno.')
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    return stripe.checkout.Session.retrieve(session_id)
