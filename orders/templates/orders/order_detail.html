@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle del pedido - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-shell {
+        width: min(1100px, calc(100% - 32px));
+        margin: 32px auto 64px;
+    }
+
+    .detail-card {
+        background: white;
+        border-radius: 18px;
+        border: 1px solid #ebf0ed;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
+        padding: 28px;
+    }
+
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .detail-header h1 {
+        margin: 0;
+        color: #1f2937;
+    }
+
+    .state-badge {
+        display: inline-flex;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #e8f5e9;
+        color: #2e7d32;
+        font-weight: 700;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-top: 16px;
+    }
+
+    .info-box {
+        background: #f8fafc;
+        border: 1px solid #edf2f7;
+        border-radius: 12px;
+        padding: 14px 16px;
+    }
+
+    .info-box strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #111827;
+    }
+
+    .section-title {
+        margin-top: 30px;
+        margin-bottom: 12px;
+        color: #1f2937;
+    }
+
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .items-table th,
+    .items-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+    }
+
+    .items-table th {
+        background: #f3f4f6;
+    }
+
+    .status-form {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .status-form form {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .status-form select {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+    }
+
+    .status-form button {
+        padding: 10px 16px;
+        border: none;
+        background: #4caf50;
+        color: white;
+        border-radius: 8px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .back-link {
+        display: inline-block;
+        margin-top: 20px;
+        color: #123b2e;
+        text-decoration: none;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-header">
+            <h1>Pedido {{ order.codigo_pedido }}</h1>
+            <span class="state-badge">{{ order.get_estado_display }}</span>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-box">
+                <strong>Comprador</strong>
+                <div>{{ order.comprador_nombre }} {{ order.comprador_apellidos }}</div>
+            </div>
+            <div class="info-box">
+                <strong>Correo</strong>
+                <div>{{ order.comprador_email }}</div>
+            </div>
+            <div class="info-box">
+                <strong>Fecha</strong>
+                <div>{{ order.fecha }}</div>
+            </div>
+            <div class="info-box">
+                <strong>Seguimiento</strong>
+                <div>{{ order.codigo_seguimiento }}</div>
+            </div>
+            <div class="info-box">
+                <strong>Método de pago</strong>
+                <div>{{ order.get_metodo_pago_display }}</div>
+            </div>
+            <div class="info-box">
+                <strong>Teléfono</strong>
+                <div>{{ order.telefono }}</div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-box">
+                <strong>Dirección de envío</strong>
+                <div>{{ order.direccion_envio }}, {{ order.ciudad_envio }} ({{ order.codigo_postal_envio }})</div>
+            </div>
+            <div class="info-box">
+                <strong>Dirección de facturación</strong>
+                <div>{{ order.direccion_facturacion }}, {{ order.ciudad_facturacion }} ({{ order.codigo_postal_facturacion }})</div>
+            </div>
+        </div>
+
+        <h2 class="section-title">Resumen</h2>
+        <div class="info-grid">
+            <div class="info-box"><strong>Subtotal</strong><div>{{ order.subtotal }} €</div></div>
+            <div class="info-box"><strong>Impuestos</strong><div>{{ order.impuesto }} €</div></div>
+            <div class="info-box"><strong>Coste de envío</strong><div>{{ order.coste_entrega }} €</div></div>
+            <div class="info-box"><strong>Total</strong><div>{{ order.total }} €</div></div>
+        </div>
+
+        <h2 class="section-title">Productos</h2>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio unitario</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order_items %}
+                    <tr>
+                        <td>{{ item.producto.nombre }}</td>
+                        <td>{{ item.cantidad }}</td>
+                        <td>{{ item.precio_unitario }} €</td>
+                        <td>{{ item.total }} €</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if can_edit_status and status_form %}
+            <div class="status-form">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ status_form.as_p }}
+                    <button type="submit">Guardar estado</button>
+                </form>
+            </div>
+        {% endif %}
+
+        {% if can_edit_status %}
+            {% if selected_store %}
+                <a href="{% url 'vendor_order_list' %}?tienda={{ selected_store.pk }}" class="back-link">← Volver a pedidos</a>
+            {% else %}
+                <a href="{% url 'vendor_order_list' %}" class="back-link">← Volver a pedidos</a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'order_history' %}" class="back-link">← Volver a Mis pedidos</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

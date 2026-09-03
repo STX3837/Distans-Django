@@ -139,7 +139,7 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             direccion_facturacion=address_data['direccion_facturacion'],
             ciudad_facturacion=address_data['ciudad_facturacion'],
             codigo_postal_facturacion=address_data['codigo_postal_facturacion'],
-            estado='pendiente_pago',
+            estado='preparacion',
         )
 
         for line in cart_snapshot['items']:
