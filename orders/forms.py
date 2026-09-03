@@ -189,3 +189,23 @@ class CheckoutPaymentForm(forms.Form):
         choices=Pedido.METODO_PAGO_CHOICES,
         widget=forms.RadioSelect,
     )
+
+
+class OrderLookupForm(forms.Form):
+    codigo_pedido = forms.CharField(
+        label='Código de pedido',
+        max_length=50,
+        error_messages={
+            'required': 'Introduce un código de pedido.',
+            'max_length': 'El código de pedido no puede superar los 50 caracteres.',
+        },
+    )
+
+    def clean_codigo_pedido(self):
+        return self.cleaned_data['codigo_pedido'].strip().upper()
+
+
+class PedidoEstadoForm(forms.ModelForm):
+    class Meta:
+        model = Pedido
+        fields = ['estado']

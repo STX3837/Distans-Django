@@ -204,6 +204,23 @@
         cursor: not-allowed;
     }
 
+    .orders-fab {
+        position: fixed;
+        right: 28px;
+        bottom: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #123b2e;
+        color: white;
+        border-radius: 999px;
+        padding: 14px 18px;
+        box-shadow: 0 20px 35px rgba(18, 59, 46, 0.25);
+        text-decoration: none;
+        font-weight: 700;
+        z-index: 20;
+    }
+
     .continue-shopping {
         width: 100%;
         padding: 12px;
@@ -356,6 +373,7 @@
                 <a href="{% url 'catalog' %}" class="continue-shopping">Seguir comprando</a>
             </div>
         </div>
+        <a href="{% url 'order_history' %}" class="orders-fab">Mis pedidos</a>
     {% else %}
         <div class="empty-cart">
             <p style="font-size: 16px;">Tu carrito está vacío</p>
