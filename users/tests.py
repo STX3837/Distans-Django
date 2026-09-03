@@ -85,6 +85,20 @@ class RootUrlTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, '/accounts/login/', fetch_redirect_response=False)
 
+    def test_admin_login_redirects_to_store_admin_list(self):
+        admin = User.objects.create_superuser(
+            email='admin@example.com',
+            password='secret123',
+            nombre='Admin',
+            apellidos='User',
+        )
+
+        self.client.force_login(admin)
+        response = self.client.get(reverse('post_login_redirect'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('store_list_admin'), fetch_redirect_response=False)
+
 
 class AdminUserViewTests(TestCase):
     def setUp(self):
