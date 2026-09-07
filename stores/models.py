@@ -21,3 +21,12 @@ class Tienda(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+
+class VisitaTienda(models.Model):
+    tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='visitas')
+    session_key = models.CharField(max_length=40, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['tienda', 'created_at'])]
+

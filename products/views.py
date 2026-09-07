@@ -3,6 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.forms import modelformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
+from django.db.models import Case, Count, ExpressionWrapper, F, FloatField, Value, When
+from django.db.models.functions import Least
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from functools import wraps
 from decimal import Decimal, InvalidOperation
@@ -12,8 +15,8 @@ from carts.models import Carrito, ProductoCarrito
 from orders.utils import build_cart_snapshot
 
 from .forms import ProductoForm, ProductoStockForm
-from .models import Producto
-from stores.models import Tienda
+from .models import Producto, VisitaProducto
+from stores.models import Tienda, VisitaTienda
 from stores.utils import filter_products_by_geo, get_geo_search_state, store_is_within_radius
 
 
@@ -21,6 +24,47 @@ def _ensure_session_key(request):
 	if not request.session.session_key:
 		request.session.create()
 	return request.session.session_key
+
+
+def _visitor_key(request):
+	if request.user.is_authenticated:
+		return f'user:{request.user.pk}'
+	return _ensure_session_key(request)
+
+
+def _record_product_visit(request, producto):
+	if not _can_record_guest_visit(request):
+		return
+	if request.user.is_authenticated:
+		VisitaProducto.objects.get_or_create(producto=producto, session_key=_visitor_key(request))
+	else:
+		VisitaProducto.objects.create(producto=producto, session_key=_visitor_key(request))
+	_mark_guest_visit(request)
+
+
+def _record_store_visit(request, tienda):
+	if not _can_record_guest_visit(request):
+		return
+	if request.user.is_authenticated:
+		VisitaTienda.objects.get_or_create(tienda=tienda, session_key=_visitor_key(request))
+	else:
+		VisitaTienda.objects.create(tienda=tienda, session_key=_visitor_key(request))
+	_mark_guest_visit(request)
+
+
+def _can_record_guest_visit(request):
+	if request.user.is_authenticated:
+		return True
+	last_visit = request.session.get('last_guest_visit_at')
+	if last_visit is None:
+		return True
+	return timezone.now().timestamp() - float(last_visit) >= 20 * 60
+
+
+def _mark_guest_visit(request):
+	if not request.user.is_authenticated:
+		request.session['last_guest_visit_at'] = timezone.now().timestamp()
+		request.session.modified = True
 
 
 def _get_or_create_cart(request):
@@ -77,18 +121,19 @@ def buyer_or_guest_required(view_func):
 def catalog(request):
 	"""Listado público de productos de todas las tiendas."""
 	geo_state = get_geo_search_state(request)
-	productos = Producto.objects.select_related('tienda')
+	productos = _filtered_products(request)
 	productos = filter_products_by_geo(productos, geo_state).order_by('-disponible', '-destacado', 'nombre')
-	return render(request, 'products/catalog.html', {'products': productos, 'geo_search': geo_state})
+	return render(request, 'products/catalog.html', _product_filter_context(productos, geo_state, request))
 
 
 @buyer_or_guest_required
 def store_products(request, pk):
 	"""Listado de productos de una tienda concreta para compradores e invitados."""
 	tienda = get_object_or_404(Tienda, pk=pk)
+	_record_store_visit(request, tienda)
 	geo_state = get_geo_search_state(request)
 	store_allowed = store_is_within_radius(tienda, geo_state['latitude'], geo_state['longitude'], geo_state['radius_km'])
-	productos = tienda.productos.filter(disponible=True).order_by('-destacado', 'nombre') if store_allowed else tienda.productos.none()
+	productos = _filtered_products(request, tienda=tienda).filter(disponible=True).order_by('-destacado', 'nombre') if store_allowed else tienda.productos.none()
 	return render(
 		request,
 		'products/store_products.html',
@@ -97,6 +142,11 @@ def store_products(request, pk):
 			'products': productos,
 			'geo_search': geo_state,
 			'store_in_radius': store_allowed,
+			'category_choices': Producto.CATEGORIAS_CHOICES,
+			'current_category': request.GET.get('categoria', ''),
+			'current_price_min': request.GET.get('precio_min', ''),
+			'current_price_max': request.GET.get('precio_max', ''),
+			'current_popularity_min': request.GET.get('popularidad_min', ''),
 		},
 	)
 
@@ -270,6 +320,7 @@ def product_delete(request, store_pk, pk):
 def product_detail(request, pk):
 	"""Detalle del producto - accesible para registrados y no registrados"""
 	producto = get_object_or_404(Producto, pk=pk)
+	_record_product_visit(request, producto)
 	
 	return render(
 		request,
@@ -478,3 +529,67 @@ def store_update(request, pk):
 			'title': f'Editar {tienda.nombre}',
 		},
 	)
+
+
+def _rating_annotations(queryset, visit_relation, purchase_relation):
+	queryset = queryset.annotate(
+		visitas_count=Count(visit_relation, distinct=True),
+		compras_count=Count(purchase_relation, distinct=True),
+	)
+	return queryset.annotate(
+		popularidad_media=Case(
+			When(
+				visitas_count__gt=0,
+				then=Least(
+					ExpressionWrapper(
+						(Value(4.0) + F('compras_count') * Value(5.0)) /
+						(F('visitas_count') + Value(1.0)),
+						output_field=FloatField(),
+					),
+					Value(5.0),
+				),
+			),
+			default=Value(0.0),
+			output_field=FloatField(),
+		)
+	)
+
+
+def _parse_decimal(value):
+	try:
+		return Decimal(value) if value not in (None, '') else None
+	except (InvalidOperation, TypeError, ValueError):
+		return None
+
+
+def _filtered_products(request, tienda=None):
+	productos = Producto.objects.select_related('tienda')
+	if tienda is not None:
+		productos = productos.filter(tienda=tienda)
+	productos = _rating_annotations(productos, 'visitas', 'productopedido__pedido')
+
+	categoria = request.GET.get('categoria', '').strip()
+	precio_min = _parse_decimal(request.GET.get('precio_min'))
+	precio_max = _parse_decimal(request.GET.get('precio_max'))
+	popularidad_min = _parse_decimal(request.GET.get('popularidad_min'))
+	if categoria:
+		productos = productos.filter(categoria=categoria)
+	if precio_min is not None:
+		productos = productos.filter(precio__gte=precio_min)
+	if precio_max is not None:
+		productos = productos.filter(precio__lte=precio_max)
+	if popularidad_min is not None:
+		productos = productos.filter(popularidad_media__gte=max(Decimal('0'), min(popularidad_min, Decimal('5'))))
+	return productos
+
+
+def _product_filter_context(productos, geo_state, request):
+	return {
+		'products': productos,
+		'geo_search': geo_state,
+		'category_choices': Producto.CATEGORIAS_CHOICES,
+		'current_category': request.GET.get('categoria', ''),
+		'current_price_min': request.GET.get('precio_min', ''),
+		'current_price_max': request.GET.get('precio_max', ''),
+		'current_popularity_min': request.GET.get('popularidad_min', ''),
+	}
