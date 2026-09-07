@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 from functools import wraps
 from .models import Tienda, VisitaTienda
 from .forms import TiendaForm
-from .utils import filter_stores_by_geo, get_geo_search_state
+from .utils import filter_stores_by_geo, get_catalog_mode, get_geo_search_state, set_catalog_mode as save_catalog_mode
 from users.models import User
 from products.models import Producto
 
@@ -44,6 +44,7 @@ def store_list(request):
 		'category_choices': Producto.CATEGORIAS_CHOICES,
 		'current_category': request.GET.get('categoria', ''),
 		'current_popularity_min': request.GET.get('popularidad_min', ''),
+		'catalog_mode': get_catalog_mode(request),
 	})
 
 
@@ -75,6 +76,8 @@ def _filtered_stores(request):
 			output_field=FloatField(),
 		)
 	)
+	if get_catalog_mode(request) == 'online':
+		tiendas = tiendas.filter(plan=Tienda.Plan.PREMIUM, suscripcion_activa=True, pasarela_activa=True)
 	categoria = request.GET.get('categoria', '').strip()
 	popularidad_min = _parse_decimal(request.GET.get('popularidad_min'))
 	if categoria:
@@ -90,6 +93,7 @@ def store_map(request):
 	geo_state = get_geo_search_state(request)
 	tiendas = _filtered_stores(request).filter(latitud__isnull=False, longitud__isnull=False).order_by('nombre')
 	tiendas = filter_stores_by_geo(tiendas, geo_state)
+	selected_store_id = request.GET.get('tienda')
 
 	store_data = []
 	for tienda in tiendas:
@@ -101,6 +105,7 @@ def store_map(request):
 			'latitude': float(tienda.latitud),
 			'longitude': float(tienda.longitud),
 			'products_url': reverse('store_products', args=[tienda.pk]),
+			'selected': str(tienda.pk) == str(selected_store_id),
 		})
 
 	context = {
@@ -109,8 +114,15 @@ def store_map(request):
 		'stores_map_data': json.dumps(store_data, ensure_ascii=False),
 		'map_center_lat': geo_state['latitude'] if geo_state['latitude'] is not None else 40.4168,
 		'map_center_lng': geo_state['longitude'] if geo_state['longitude'] is not None else -3.7038,
+		'selected_store_id': selected_store_id or '',
 	}
 	return render(request, 'stores/store_map.html', context)
+
+
+@require_http_methods(['POST'])
+def set_catalog_mode(request):
+	save_catalog_mode(request, request.POST.get('catalog_mode'))
+	return redirect(request.POST.get('next') or request.META.get('HTTP_REFERER') or 'catalog')
 
 
 @login_required

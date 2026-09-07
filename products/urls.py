@@ -16,6 +16,7 @@ urlpatterns = [
     # Comprador - Público
     path('busqueda/ubicacion/', store_views.set_search_location, name='set_search_location'),
     path('busqueda/radio/', store_views.set_search_radius, name='set_search_radius'),
+    path('busqueda/catalogo/', store_views.set_catalog_mode, name='set_catalog_mode'),
     path('productos/', views.catalog, name='catalog'),
     path('tiendas/<int:pk>/productos/', views.store_products, name='store_products'),
     path('productos/<int:pk>/', views.product_detail, name='product_detail'),

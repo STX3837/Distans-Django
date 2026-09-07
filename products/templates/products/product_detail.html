@@ -231,6 +231,43 @@
         text-decoration: underline;
     }
 
+    .physical-store-box {
+        padding: 16px;
+        border-radius: 8px;
+        background: #fff8e1;
+        color: #5d4300;
+        margin-top: 16px;
+    }
+
+    .physical-store-box p { margin: 7px 0; }
+
+    .physical-store-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .physical-store-actions a {
+        display: inline-block;
+        padding: 10px 14px;
+        border-radius: 6px;
+        background: #8d6e00;
+        color: white;
+        font-weight: bold;
+    }
+
+    .physical-store-toggle {
+        padding: 10px 14px;
+        border: 0;
+        border-radius: 6px;
+        background: #8d6e00;
+        color: white;
+        font-weight: bold;
+    }
+
+    .physical-store-details[hidden] { display: none; }
+
     @media (max-width: 768px) {
         .product-detail-container {
             grid-template-columns: 1fr;
@@ -340,7 +377,19 @@
             </div>
 
             <!-- Carrito -->
-            {% if product.disponible and product.stock > 0 %}
+            {% if product.tienda and not product.tienda.permite_compra_online %}
+                <div class="physical-store-box">
+                    <button type="button" class="physical-store-toggle" id="physical-store-toggle" aria-expanded="false" aria-controls="physical-store-details">Disponible solo en tienda física</button>
+                    <div class="physical-store-details" id="physical-store-details" hidden>
+                        <p><strong>Dirección:</strong> {{ product.tienda.direccion|default:'No disponible' }}</p>
+                        <p><strong>Horario:</strong> {{ product.tienda.horario|default:'Consultar en tienda' }}</p>
+                        {% if product.tienda.informacion_apertura %}<p>{{ product.tienda.informacion_apertura }}</p>{% endif %}
+                        <div class="physical-store-actions">
+                            <a href="{% url 'store_map' %}?tienda={{ product.tienda.pk }}">Visitar tienda</a>
+                        </div>
+                    </div>
+                </div>
+            {% elif product.disponible and product.stock > 0 %}
                 <form method="post" action="{% url 'add_to_cart' product.pk %}" class="cart-section">
                     {% csrf_token %}
                     <div class="quantity-selector">
@@ -355,4 +404,15 @@
         </div>
     </div>
 </div>
+<script>
+    const physicalStoreToggle = document.getElementById('physical-store-toggle');
+    const physicalStoreDetails = document.getElementById('physical-store-details');
+    if (physicalStoreToggle && physicalStoreDetails) {
+        physicalStoreToggle.addEventListener('click', () => {
+            const expanded = physicalStoreToggle.getAttribute('aria-expanded') === 'true';
+            physicalStoreToggle.setAttribute('aria-expanded', String(!expanded));
+            physicalStoreDetails.hidden = expanded;
+        });
+    }
+</script>
 {% endblock %}

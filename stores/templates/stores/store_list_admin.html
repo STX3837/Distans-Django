@@ -132,6 +132,8 @@
                 <tr>
                     <th>Nombre</th>
                     <th>Dirección</th>
+                    <th>Plan</th>
+                    <th>Suscripción</th>
                     <th>Vendedor</th>
                     <th>Acciones</th>
                 </tr>
@@ -141,6 +143,8 @@
                     <tr>
                         <td><strong>{{ tienda.nombre }}</strong></td>
                         <td>{{ tienda.direccion|default:"—" }}</td>
+                        <td>{{ tienda.get_plan_display }}</td>
+                        <td>{% if tienda.suscripcion_activa %}Activa{% else %}Inactiva{% endif %}</td>
                         <td>{{ tienda.vendedor.get_full_name }}</td>
                         <td>
                             <div class="action-buttons">

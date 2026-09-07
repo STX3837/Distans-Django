@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.utils.crypto import get_random_string
 
 from carts.models import Carrito
@@ -93,6 +94,10 @@ def build_cart_snapshot(request):
             )
 
     base_imponible = subtotal - descuento
+    physical_only_items = [
+        line for line in items
+        if not line['producto'].tienda or not line['producto'].tienda.permite_compra_online
+    ]
     impuesto = _money(base_imponible * TAX_RATE)
     coste_entrega = SHIPPING_COST
     total = _money(base_imponible + impuesto + coste_entrega)
@@ -100,6 +105,7 @@ def build_cart_snapshot(request):
     return {
         'cart': None,
         'items': items,
+		'physical_only_items': physical_only_items,
         'subtotal': _money(subtotal),
         'descuento': _money(descuento),
         'impuesto': impuesto,
@@ -114,6 +120,12 @@ def _build_order_code():
 
 
 def create_order_from_checkout(*, user, buyer_data, address_data, payment_method, cart_snapshot):
+    physical_only_items = cart_snapshot.get('physical_only_items') or [
+        line for line in cart_snapshot.get('items', [])
+        if not line['producto'].tienda or not line['producto'].tienda.permite_compra_online
+    ]
+    if physical_only_items:
+        raise ValidationError('Una tienda Freemium no puede recibir pedidos online.')
     base_imponible = cart_snapshot['subtotal'] - cart_snapshot['descuento']
     impuesto = cart_snapshot['impuesto']
     coste_entrega = cart_snapshot['coste_entrega']

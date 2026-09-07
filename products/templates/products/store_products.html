@@ -54,6 +54,9 @@
     .filters input, .filters select, .filters button { padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; }
     .filters button { background: #4caf50; color: white; cursor: pointer; }
     .popularity { color: #9a6700; font-size: 14px; margin-top: 5px; }
+    .physical-store-toggle { padding: 8px 12px; background: #8d6e00; color: white; border: 0; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .physical-store-details { margin-top: 10px; padding: 10px; background: #fff8e1; color: #5d4300; border-radius: 6px; font-size: 13px; }
+    .physical-store-details[hidden] { display: none; }
 </style>
 {% endblock %}
 
@@ -108,11 +111,31 @@
                         </div>
                     </div>
                     <div class="product-actions">
-                        <form method="post" action="{% url 'add_to_cart' product_pk=product.pk %}">
-                            {% csrf_token %}
-                            <input type="number" name="cantidad" min="1" value="1" class="qty-input" aria-label="Cantidad">
-                            <button type="submit" class="add-btn">Añadir al carrito</button>
-                        </form>
+                        {% if not store.permite_compra_online %}
+                            <button type="button" class="physical-store-toggle" aria-expanded="false">Disponible solo en tienda física</button>
+                            <div class="physical-store-details" hidden>
+                                <p><strong>Dirección:</strong> {{ store.direccion|default:'No disponible' }}</p>
+                                <p><strong>Horario:</strong> {{ store.horario|default:'Consultar en tienda' }}</p>
+                                {% if store.informacion_apertura %}<p>{{ store.informacion_apertura }}</p>{% endif %}
+                                <a href="{% url 'store_map' %}?tienda={{ store.pk }}">Visitar tienda</a>
+                            </div>
+                        <script>
+                            document.querySelectorAll('.physical-store-toggle').forEach((toggle) => {
+                                toggle.addEventListener('click', () => {
+                                    const details = toggle.nextElementSibling;
+                                    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                                    toggle.setAttribute('aria-expanded', String(!expanded));
+                                    details.hidden = expanded;
+                                });
+                            });
+                        </script>
+                        {% else %}
+                            <form method="post" action="{% url 'add_to_cart' product_pk=product.pk %}">
+                                {% csrf_token %}
+                                <input type="number" name="cantidad" min="1" value="1" class="qty-input" aria-label="Cantidad">
+                                <button type="submit" class="add-btn">Añadir al carrito</button>
+                            </form>
+                        {% endif %}
                     </div>
                 </div>
             {% endfor %}

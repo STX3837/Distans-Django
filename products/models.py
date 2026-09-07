@@ -81,4 +81,4 @@ class VisitaProducto(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        indexes = [models.Index(fields=['producto', 'created_at'])]
+        indexes = [models.Index(fields=['producto', 'created_at'], name='products_vi_product_8d4d3b_idx')]
