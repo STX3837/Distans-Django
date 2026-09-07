@@ -1,12 +1,19 @@
+import json
+from decimal import Decimal, InvalidOperation
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.db.models import Case, Count, ExpressionWrapper, F, FloatField, Value, When
+from django.db.models.functions import Least
 from django.contrib import messages
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from functools import wraps
-from .models import Tienda
+from .models import Tienda, VisitaTienda
 from .forms import TiendaForm
 from .utils import filter_stores_by_geo, get_geo_search_state
 from users.models import User
+from products.models import Producto
 
 
 def buyer_or_guest_required(view_func):
@@ -30,8 +37,80 @@ def buyer_or_guest_required(view_func):
 def store_list(request):
 	"""Listado público/administrativo de tiendas."""
 	geo_state = get_geo_search_state(request)
-	tiendas = filter_stores_by_geo(Tienda.objects.all().order_by('nombre'), geo_state)
-	return render(request, 'stores/store_list.html', {'stores': tiendas, 'geo_search': geo_state})
+	tiendas = filter_stores_by_geo(_filtered_stores(request).order_by('nombre'), geo_state)
+	return render(request, 'stores/store_list.html', {
+		'stores': tiendas,
+		'geo_search': geo_state,
+		'category_choices': Producto.CATEGORIAS_CHOICES,
+		'current_category': request.GET.get('categoria', ''),
+		'current_popularity_min': request.GET.get('popularidad_min', ''),
+	})
+
+
+def _parse_decimal(value):
+	try:
+		return Decimal(value) if value not in (None, '') else None
+	except (InvalidOperation, TypeError, ValueError):
+		return None
+
+
+def _filtered_stores(request):
+	tiendas = Tienda.objects.annotate(
+		visitas_count=Count('visitas', distinct=True),
+		compras_count=Count('productos__productopedido__pedido', distinct=True),
+	).annotate(
+		popularidad_media=Case(
+			When(
+				visitas_count__gt=0,
+				then=Least(
+					ExpressionWrapper(
+						(Value(4.0) + F('compras_count') * Value(5.0)) /
+						(F('visitas_count') + Value(1.0)),
+						output_field=FloatField(),
+					),
+					Value(5.0),
+				),
+			),
+			default=Value(0.0),
+			output_field=FloatField(),
+		)
+	)
+	categoria = request.GET.get('categoria', '').strip()
+	popularidad_min = _parse_decimal(request.GET.get('popularidad_min'))
+	if categoria:
+		tiendas = tiendas.filter(productos__categoria=categoria).distinct()
+	if popularidad_min is not None:
+		tiendas = tiendas.filter(popularidad_media__gte=max(Decimal('0'), min(popularidad_min, Decimal('5'))))
+	return tiendas
+
+
+@buyer_or_guest_required
+def store_map(request):
+	"""Mapa interactivo con las tiendas filtradas por ubicacion/radio para compradores e invitados."""
+	geo_state = get_geo_search_state(request)
+	tiendas = _filtered_stores(request).filter(latitud__isnull=False, longitud__isnull=False).order_by('nombre')
+	tiendas = filter_stores_by_geo(tiendas, geo_state)
+
+	store_data = []
+	for tienda in tiendas:
+		store_data.append({
+			'id': tienda.pk,
+			'name': tienda.nombre,
+			'description': tienda.descripcion or '',
+			'address': tienda.direccion or '',
+			'latitude': float(tienda.latitud),
+			'longitude': float(tienda.longitud),
+			'products_url': reverse('store_products', args=[tienda.pk]),
+		})
+
+	context = {
+		'stores': tiendas,
+		'geo_search': geo_state,
+		'stores_map_data': json.dumps(store_data, ensure_ascii=False),
+		'map_center_lat': geo_state['latitude'] if geo_state['latitude'] is not None else 40.4168,
+		'map_center_lng': geo_state['longitude'] if geo_state['longitude'] is not None else -3.7038,
+	}
+	return render(request, 'stores/store_map.html', context)
 
 
 @login_required

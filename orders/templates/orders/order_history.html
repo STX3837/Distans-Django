@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Mis pedidos - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-shell {
+        width: min(1100px, calc(100% - 32px));
+        margin: 32px auto 64px;
+    }
+
+    .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    .history-header h1 {
+        margin: 0;
+        color: #1f2937;
+    }
+
+    .search-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: white;
+        border: 1px solid #dfe7e5;
+        border-radius: 999px;
+        padding: 8px 14px;
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    .search-box input {
+        border: none;
+        outline: none;
+        min-width: 220px;
+        font-size: 14px;
+    }
+
+    .search-box button {
+        border: none;
+        background: #4caf50;
+        color: white;
+        border-radius: 999px;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .orders-list {
+        display: grid;
+        gap: 18px;
+    }
+
+    .order-card {
+        background: white;
+        border: 1px solid #ebf0ed;
+        border-radius: 18px;
+        padding: 22px 20px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
+        transition: transform 0.2s ease;
+    }
+
+    .order-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .order-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .order-code {
+        font-weight: 800;
+        color: #123b2e;
+        text-decoration: none;
+        font-size: 1.05rem;
+    }
+
+    .order-state {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e8f5e9;
+        color: #2e7d32;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .order-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+        color: #4b5563;
+        margin-bottom: 16px;
+    }
+
+    .order-meta strong {
+        display: block;
+        color: #111827;
+        margin-bottom: 4px;
+    }
+
+    .order-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .order-actions a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #fff;
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+    .empty-state {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 28px;
+        text-align: center;
+        color: #4b5563;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-shell">
+    <div class="history-header">
+        <h1>Mis pedidos</h1>
+
+        <form method="post" action="{% url 'order_lookup' %}" class="search-box">
+            {% csrf_token %}
+            <span style="font-size:12px; color:#6b7280; font-weight:700; text-transform:lowercase;">buscar por código</span>
+            <input type="text" name="codigo_pedido" placeholder="Buscar por código" aria-label="Buscar por código">
+            <button type="submit">Buscar</button>
+        </form>
+    </div>
+
+    {% if orders %}
+        <div class="orders-list">
+            {% for order in orders %}
+                <article class="order-card">
+                    <div class="order-top">
+                        <a class="order-code" href="{% url 'order_detail' order.codigo_pedido %}">{{ order.codigo_pedido }}</a>
+                        <span class="order-state">{{ order.get_estado_display }}</span>
+                    </div>
+
+                    <div class="order-meta">
+                        <div>
+                            <strong>Fecha</strong>
+                            <span>{{ order.fecha }}</span>
+                        </div>
+                        <div>
+                            <strong>Total</strong>
+                            <span>{{ order.total }} €</span>
+                        </div>
+                        <div>
+                            <strong>Método de pago</strong>
+                            <span>{{ order.get_metodo_pago_display }}</span>
+                        </div>
+                    </div>
+
+                    <div class="order-actions">
+                        <a href="{% url 'order_detail' order.codigo_pedido %}">Ver detalle</a>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No tienes pedidos todavía.</p>
+            <p>Cuando realices una compra, aparecerá aquí para seguir su estado.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

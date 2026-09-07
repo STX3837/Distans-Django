@@ -48,7 +48,9 @@
             {% if user.is_authenticated %}
                 <div class="user-menu">
                     <span class="user-name">{{ user.nombre }} {{ user.apellidos }}</span>
-                    {% if user.rol == 'vendedor' or user.is_staff %}
+                    {% if user.is_staff or user.rol == 'admin' %}
+                        <a href="{% url 'store_list_admin' %}" class="nav-link">Gestion de tiendas</a>
+                    {% elif user.rol == 'vendedor' %}
                         <a href="{% url 'seller_home' %}" class="nav-link">Mis tiendas</a>
                     {% endif %}
                     <a href="{% url 'account_detail' %}" class="nav-link">Mi Cuenta</a>

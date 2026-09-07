@@ -43,9 +43,9 @@ def post_login_redirect(request):
         except Exception:
             return redirect('account_detail')
 
-    # Admin / staff -> listado de tiendas (visión global)
+    # Admin / staff -> panel de administración de tiendas
     if request.user.is_staff or request.user.rol == User.Role.ADMIN:
-        return redirect('store_list')
+        return redirect('store_list_admin')
 
     return redirect('account_detail')
 

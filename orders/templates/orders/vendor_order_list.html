@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Pedidos - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .orders-shell {
+        width: min(1200px, calc(100% - 32px));
+        margin: 32px auto 64px;
+    }
+
+    .orders-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .orders-header h1 {
+        margin: 0;
+        color: #1f2937;
+    }
+
+    .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 14px;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.04);
+    }
+
+    .filters input,
+    .filters select {
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        min-width: 180px;
+    }
+
+    .filters button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .orders-table {
+        width: 100%;
+        background: white;
+        border-collapse: collapse;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
+    }
+
+    .orders-table th,
+    .orders-table td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+    }
+
+    .orders-table th {
+        background: #f3f4f6;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e8f5e9;
+        color: #2e7d32;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .link-button {
+        color: #123b2e;
+        font-weight: 700;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="orders-shell">
+    <div class="orders-header">
+        <h1>Pedidos{% if selected_store %} · {{ selected_store.nombre }}{% endif %}</h1>
+        <form method="get" class="filters">
+            {% if selected_store %}<input type="hidden" name="tienda" value="{{ selected_store.pk }}">{% endif %}
+            <input type="text" name="codigo_pedido" value="{{ current_code }}" placeholder="Buscar por número de pedido">
+            <input type="text" name="usuario" value="{{ current_user_filter }}" placeholder="Filtrar por usuario">
+            <button type="submit">Aplicar filtros</button>
+        </form>
+    </div>
+
+    <table class="orders-table">
+        <thead>
+            <tr>
+                <th>Pedido</th>
+                <th>Comprador</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Total</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+                <tr>
+                    <td><a class="link-button" href="{% url 'vendor_order_detail' order.codigo_pedido %}?tienda={{ selected_store.pk|default_if_none:'' }}">{{ order.codigo_pedido }}</a></td>
+                    <td>{{ order.comprador_nombre }} {{ order.comprador_apellidos }}</td>
+                    <td>{{ order.fecha }}</td>
+                    <td><span class="status-pill">{{ order.get_estado_display }}</span></td>
+                    <td>{{ order.total }} €</td>
+                    <td><a class="link-button" href="{% url 'vendor_order_detail' order.codigo_pedido %}?tienda={{ selected_store.pk|default_if_none:'' }}">Editar</a></td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6">No hay pedidos para los filtros actuales.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

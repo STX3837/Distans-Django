@@ -15,11 +15,12 @@
         color: #1b5e20;
         font-weight: 600;
     }
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .product-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
     .product-card {
         display: flex;
         gap: 14px;
         align-items: center;
+        width: 100%;
         background: white;
         border-radius: 8px;
         padding: 12px;
@@ -49,6 +50,10 @@
     .add-btn { padding:8px 12px; background:#4caf50; color:#fff; border-radius:6px; border:none; cursor:pointer; }
     .add-btn:hover { background:#419544 }
     .empty-message { padding: 20px; border-radius: 8px; background: #fff; color: #666; }
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    .filters input, .filters select, .filters button { padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; }
+    .filters button { background: #4caf50; color: white; cursor: pointer; }
+    .popularity { color: #9a6700; font-size: 14px; margin-top: 5px; }
 </style>
 {% endblock %}
 
@@ -58,6 +63,19 @@
         <h1>Productos de {{ store.nombre }}</h1>
         <p class="store-subtitle">Catálogo de esta tienda</p>
     </div>
+
+    <form method="get" class="filters" aria-label="Filtros de productos">
+        <select name="categoria">
+            <option value="">Todas las categorías</option>
+            {% for value, label in category_choices %}
+                <option value="{{ value }}" {% if current_category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="number" name="precio_min" min="0" step="0.01" value="{{ current_price_min }}" placeholder="Precio mínimo">
+        <input type="number" name="precio_max" min="0" step="0.01" value="{{ current_price_max }}" placeholder="Precio máximo">
+        <input type="number" name="popularidad_min" min="0" max="5" step="0.1" value="{{ current_popularity_min }}" placeholder="Popularidad mínima">
+        <button type="submit">Filtrar</button>
+    </form>
 
     {% if geo_search.has_location and geo_search.has_radius %}
         <div class="search-banner">Mostrando solo productos dentro de {{ geo_search.radius_label }} de tu ubicacion seleccionada.</div>
@@ -79,6 +97,7 @@
                     <div class="product-info">
                         <h3><a href="{% url 'product_detail' product.pk %}">{{ product.nombre }}</a></h3>
                         <p>{{ store.nombre }}</p>
+                        <div class="popularity">Popularidad: {{ product.popularidad_media|floatformat:1 }}/5</div>
                         <div class="product-price">
                             {% if product.en_oferta and product.precio_oferta %}
                                 <span style="text-decoration: line-through; color: #999">{{ product.precio }}€</span>

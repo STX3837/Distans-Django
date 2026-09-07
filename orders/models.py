@@ -8,6 +8,9 @@ class Pedido(models.Model):
     ESTADO_CHOICES = [
         ('pendiente_pago', 'Pendiente de pago'),
         ('completado', 'Completado'),
+        ('preparacion', 'En preparación'),
+        ('enviado', 'Enviado'),
+        ('entregado', 'Entregado'),
         ('cancelado', 'Cancelado'),
     ]
 
@@ -25,7 +28,7 @@ class Pedido(models.Model):
         null=True,
     )
     fecha = models.DateField(default=timezone.localdate)
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente_pago')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='preparacion')
     comprador_nombre = models.CharField(max_length=150)
     comprador_apellidos = models.CharField(max_length=150)
     comprador_email = models.EmailField()
@@ -46,6 +49,10 @@ class Pedido(models.Model):
     stock_reservado = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def codigo_seguimiento(self):
+        return self.codigo_pedido
 
     def __str__(self):
         return f"Pedido {self.codigo_pedido}"

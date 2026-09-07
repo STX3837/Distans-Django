@@ -73,3 +73,12 @@ class Producto(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class VisitaProducto(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='visitas')
+    session_key = models.CharField(max_length=40, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['producto', 'created_at'])]
