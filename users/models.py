@@ -62,3 +62,41 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return self.nombre
+
+
+class Favorite(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favoritos')
+    producto = models.ForeignKey(
+        'products.Producto',
+        on_delete=models.CASCADE,
+        related_name='favoritos',
+        null=True,
+        blank=True,
+    )
+    tienda = models.ForeignKey(
+        'stores.Tienda',
+        on_delete=models.CASCADE,
+        related_name='favoritos',
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['usuario', 'producto'],
+                name='unique_user_product_favorite',
+            ),
+            models.UniqueConstraint(
+                fields=['usuario', 'tienda'],
+                name='unique_user_store_favorite',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(producto__isnull=False, tienda__isnull=True)
+                    | models.Q(producto__isnull=True, tienda__isnull=False)
+                ),
+                name='favorite_has_one_target',
+            ),
+        ]

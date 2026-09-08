@@ -3,6 +3,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .forms import AccountUpdateForm, AdminUserForm, SignUpForm
+from products.models import Producto
+from stores.models import Tienda
+from .models import Favorite
 
 
 User = get_user_model()
@@ -98,6 +101,64 @@ class RootUrlTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('store_list_admin'), fetch_redirect_response=False)
+
+
+class FavoriteViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='favoritos@example.com',
+            password='secret123',
+            nombre='Ana',
+            apellidos='García',
+        )
+        self.other_user = User.objects.create_user(
+            email='otro@example.com',
+            password='secret123',
+            nombre='Luis',
+            apellidos='López',
+        )
+        seller = User.objects.create_user(
+            email='vendedor@example.com',
+            password='secret123',
+            nombre='Vendedor',
+            apellidos='Test',
+            rol=User.Role.SELLER,
+        )
+        self.store = Tienda.objects.create(nombre='Tienda de prueba', vendedor=seller)
+        self.product = Producto.objects.create(
+            nombre='Producto de prueba',
+            descripcion='Descripción',
+            precio='10.00',
+            marca='Marca',
+            categoria='cultura_ocio',
+            stock=3,
+            tienda=self.store,
+        )
+
+    def test_buyer_can_toggle_product_and_store_favorites(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('toggle_product_favorite', args=[self.product.pk]))
+        self.assertRedirects(response, f'/productos/{self.product.pk}/', fetch_redirect_response=False)
+        response = self.client.post(reverse('toggle_store_favorite', args=[self.store.pk]))
+        self.assertRedirects(response, '/tiendas/', fetch_redirect_response=False)
+        self.assertEqual(Favorite.objects.filter(usuario=self.user).count(), 2)
+
+        response = self.client.get(reverse('favorites'))
+        self.assertContains(response, self.product.nombre)
+        self.assertContains(response, self.store.nombre)
+
+    def test_favorites_are_private_and_toggle_is_idempotent(self):
+        self.client.force_login(self.user)
+        url = reverse('toggle_product_favorite', args=[self.product.pk])
+        self.client.post(url)
+        self.client.post(url)
+        self.assertFalse(Favorite.objects.filter(usuario=self.user, producto=self.product).exists())
+
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse('favorites'))
+        self.assertEqual(response.context['favorite_products'].count(), 0)
+        self.assertEqual(response.context['favorite_stores'].count(), 0)
 
 
 class AdminUserViewTests(TestCase):

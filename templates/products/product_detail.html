@@ -217,6 +217,19 @@
         cursor: not-allowed;
     }
 
+    .favorite-btn {
+        margin-bottom: 20px;
+        padding: 10px 16px;
+        background: #fff;
+        color: #4caf50;
+        border: 1px solid #4caf50;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .favorite-btn.active { background: #e8f5e9; }
+
     .back-button {
         margin-bottom: 20px;
     }
@@ -277,6 +290,14 @@
             <div class="product-store">
                 Vendido por: <a href="{% url 'store_products' product.tienda.pk %}">{{ product.tienda.nombre }}</a>
             </div>
+
+            <form method="post" action="{% url 'toggle_product_favorite' product.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="favorite-btn {% if product.pk in favorite_product_ids %}active{% endif %}">
+                    {% if product.pk in favorite_product_ids %}♥ Favorito{% else %}♡ Añadir a favoritos{% endif %}
+                </button>
+            </form>
 
             <!-- Badges -->
             <div class="product-badges">
