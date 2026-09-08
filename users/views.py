@@ -1,9 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from .forms import AccountUpdateForm, AdminUserForm, SignUpForm
-from .models import User
+from .models import Favorite, User
+from products.models import Producto
+from stores.models import Tienda
 
 
 def is_staff_user(user):
@@ -87,6 +90,66 @@ def account_detail(request):
         form = AccountUpdateForm(instance=request.user)
 
     return render(request, 'users/account_detail.html', {'form': form})
+
+
+def _buyer_only(request):
+    return request.user.is_authenticated and request.user.rol == User.Role.BUYER
+
+
+def _favorite_redirect(request, fallback):
+    next_url = request.POST.get('next', '')
+    if next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(fallback)
+
+
+@login_required
+def favorites(request):
+    if not _buyer_only(request):
+        return redirect('account_detail')
+
+    favorite_items = Favorite.objects.filter(usuario=request.user).select_related('producto', 'tienda')
+    return render(
+        request,
+        'users/favorites.html',
+        {
+            'favorite_items': favorite_items,
+            'favorite_products': favorite_items.filter(producto__isnull=False),
+            'favorite_stores': favorite_items.filter(tienda__isnull=False),
+        },
+    )
+
+
+@login_required
+@require_POST
+def toggle_product_favorite(request, pk):
+    if not _buyer_only(request):
+        return redirect('account_detail')
+
+    producto = get_object_or_404(Producto, pk=pk)
+    favorite, created = Favorite.objects.get_or_create(usuario=request.user, producto=producto)
+    if not created:
+        favorite.delete()
+        messages.info(request, f'{producto.nombre} eliminado de favoritos.')
+    else:
+        messages.success(request, f'{producto.nombre} añadido a favoritos.')
+    return _favorite_redirect(request, f'/productos/{producto.pk}/')
+
+
+@login_required
+@require_POST
+def toggle_store_favorite(request, pk):
+    if not _buyer_only(request):
+        return redirect('account_detail')
+
+    tienda = get_object_or_404(Tienda, pk=pk)
+    favorite, created = Favorite.objects.get_or_create(usuario=request.user, tienda=tienda)
+    if not created:
+        favorite.delete()
+        messages.info(request, f'{tienda.nombre} eliminada de favoritos.')
+    else:
+        messages.success(request, f'{tienda.nombre} añadida a favoritos.')
+    return _favorite_redirect(request, '/tiendas/')
 
 
 @user_passes_test(is_staff_user)

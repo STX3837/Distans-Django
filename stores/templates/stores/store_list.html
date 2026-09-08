@@ -42,6 +42,10 @@
         flex-direction: column;
     }
 
+    .store-card-link { color: inherit; text-decoration: none; flex-grow: 1; }
+    .favorite-btn { padding: 8px 12px; background: #fff; color: #4caf50; border: 1px solid #4caf50; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .favorite-btn.active { background: #e8f5e9; }
+
     .store-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -103,14 +107,25 @@
     {% if stores %}
         <div class="store-grid">
             {% for tienda in stores %}
-                <a href="{% url 'store_products' tienda.pk %}" class="store-card">
-                    <div class="store-name">{{ tienda.nombre }}</div>
-                    <div class="store-desc">{{ tienda.descripcion|truncatewords:15 }}</div>
-                    <div class="popularity">Popularidad: {{ tienda.popularidad_media|floatformat:1 }}/5</div>
-                    <div class="store-info">
-                        {% if tienda.direccion %}📍 {{ tienda.direccion|truncatewords:5 }}{% endif %}
-                    </div>
-                </a>
+                <div class="store-card">
+                    <a href="{% url 'store_products' tienda.pk %}" class="store-card-link">
+                        <div class="store-name">{{ tienda.nombre }}</div>
+                        <div class="store-desc">{{ tienda.descripcion|truncatewords:15 }}</div>
+                        <div class="popularity">Popularidad: {{ tienda.popularidad_media|floatformat:1 }}/5</div>
+                        <div class="store-info">
+                            {% if tienda.direccion %}📍 {{ tienda.direccion|truncatewords:5 }}{% endif %}
+                        </div>
+                    </a>
+                    {% if user.is_authenticated and user.rol == 'comprador' %}
+                        <form method="post" action="{% url 'toggle_store_favorite' tienda.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+                            <button type="submit" class="favorite-btn {% if tienda.pk in favorite_store_ids %}active{% endif %}">
+                                {% if tienda.pk in favorite_store_ids %}♥ Favorita{% else %}♡ Añadir a favoritos{% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
             {% endfor %}
         </div>
     {% else %}
