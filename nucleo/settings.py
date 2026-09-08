@@ -82,6 +82,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'carts.context_processors.cart_summary',
+                'users.context_processors.favorite_ids',
             ],
         },
     },
@@ -155,3 +156,8 @@ AUTH_USER_MODEL = 'users.User'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/post-login/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# Stripe payment settings (never hardcode real secrets).
+STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', '')
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')

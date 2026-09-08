@@ -6,9 +6,12 @@ from products.models import Producto
 
 class Pedido(models.Model):
     ESTADO_CHOICES = [
+        ('pendiente_pago', 'Pendiente de pago'),
+        ('completado', 'Completado'),
         ('preparacion', 'En preparación'),
         ('enviado', 'Enviado'),
         ('entregado', 'Entregado'),
+        ('cancelado', 'Cancelado'),
     ]
 
     METODO_PAGO_CHOICES = [
@@ -42,6 +45,8 @@ class Pedido(models.Model):
     direccion_facturacion = models.TextField()
     ciudad_facturacion = models.CharField(max_length=100)
     codigo_postal_facturacion = models.CharField(max_length=20)
+    stripe_checkout_session_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    stock_reservado = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
