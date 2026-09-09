@@ -172,6 +172,9 @@ def checkout_payment(request):
 	if not cart_snapshot['items']:
 		messages.error(request, 'Tu carrito está vacío.')
 		return redirect('cart_view')
+	if cart_snapshot['physical_only_items']:
+		messages.error(request, 'El carrito contiene productos de una tienda Freemium. Esos productos solo se pueden comprar en la tienda física.')
+		return redirect('cart_view')
 
 	form = CheckoutPaymentForm(request.POST or None)
 

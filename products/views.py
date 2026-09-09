@@ -17,7 +17,7 @@ from orders.utils import build_cart_snapshot
 from .forms import ProductoForm, ProductoStockForm
 from .models import Producto, VisitaProducto
 from stores.models import Tienda, VisitaTienda
-from stores.utils import filter_products_by_geo, get_geo_search_state, store_is_within_radius
+from stores.utils import filter_products_by_geo, get_catalog_mode, get_geo_search_state, store_is_within_radius
 
 
 def _ensure_session_key(request):
@@ -319,7 +319,7 @@ def product_delete(request, store_pk, pk):
 @buyer_or_guest_required
 def product_detail(request, pk):
 	"""Detalle del producto - accesible para registrados y no registrados"""
-	producto = get_object_or_404(Producto, pk=pk)
+	producto = get_object_or_404(Producto.objects.select_related('tienda'), pk=pk)
 	_record_product_visit(request, producto)
 	
 	return render(
@@ -336,6 +336,9 @@ def product_detail(request, pk):
 def add_to_cart(request, product_pk):
 	"""Agregar producto al carrito"""
 	producto = get_object_or_404(Producto, pk=product_pk)
+	if producto.tienda and not producto.tienda.permite_compra_online:
+		messages.warning(request, 'Este producto solo está disponible para compra en la tienda física.')
+		return redirect('product_detail', pk=producto.pk)
 	cantidad = _to_int(request.POST.get('cantidad', 1), default=1)
 	
 	if cantidad < 1:
@@ -566,6 +569,12 @@ def _filtered_products(request, tienda=None):
 	productos = Producto.objects.select_related('tienda')
 	if tienda is not None:
 		productos = productos.filter(tienda=tienda)
+	if get_catalog_mode(request) == 'online':
+		productos = productos.filter(
+			tienda__plan=Tienda.Plan.PREMIUM,
+			tienda__suscripcion_activa=True,
+			tienda__pasarela_activa=True,
+		)
 	productos = _rating_annotations(productos, 'visitas', 'productopedido__pedido')
 
 	categoria = request.GET.get('categoria', '').strip()

@@ -1,6 +1,20 @@
 from math import atan2, cos, radians, sin, sqrt
 
 
+CATALOG_MODE_ALL = 'all'
+CATALOG_MODE_ONLINE = 'online'
+
+
+def get_catalog_mode(request):
+    mode = request.session.get('catalog_mode', CATALOG_MODE_ALL)
+    return mode if mode in {CATALOG_MODE_ALL, CATALOG_MODE_ONLINE} else CATALOG_MODE_ALL
+
+
+def set_catalog_mode(request, mode):
+    request.session['catalog_mode'] = mode if mode in {CATALOG_MODE_ALL, CATALOG_MODE_ONLINE} else CATALOG_MODE_ALL
+    request.session.modified = True
+
+
 def _to_float(value):
     if value in (None, ''):
         return None

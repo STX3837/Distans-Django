@@ -18,9 +18,15 @@ class TiendaForm(forms.ModelForm):
 
     class Meta:
         model = Tienda
-        fields = ['nombre', 'descripcion', 'direccion', 'latitud', 'longitud', 'imagen']
+        fields = [
+            'nombre', 'descripcion', 'direccion', 'horario', 'informacion_apertura',
+            'plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion', 'latitud', 'longitud', 'imagen',
+        ]
         widgets = {
             'nombre': forms.TextInput(attrs={'placeholder': 'Nombre de la tienda'}),
             'descripcion': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Descripción'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Dirección'}),
+            'horario': forms.TextInput(attrs={'placeholder': 'Lunes a viernes, 09:00-20:00'}),
+            'informacion_apertura': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Información adicional de apertura y atención'}),
+            'fecha_renovacion': forms.DateInput(attrs={'type': 'date'}),
         }

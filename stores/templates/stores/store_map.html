@@ -120,6 +120,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     const stores = {{ stores_map_data|safe }} || [];
+    const selectedStoreId = '{{ selected_store_id }}';
     const centerLat = {{ map_center_lat }};
     const centerLng = {{ map_center_lng }};
     const map = L.map('store-map', { scrollWheelZoom: true }).setView([centerLat, centerLng], stores.length ? 12 : 6);
@@ -150,11 +151,18 @@
         });
         marker.addTo(map);
         markers.push(marker);
+        if (store.selected) {
+            marker.openPopup();
+        }
     });
 
     if (markers.length > 0) {
         const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
         map.fitBounds(bounds.pad(0.25));
+        const selectedMarker = stores.find(store => store.selected);
+        if (selectedMarker) {
+            map.setView([selectedMarker.latitude, selectedMarker.longitude], 15);
+        }
     }
 
     {% if geo_search.has_location and geo_search.has_radius %}
