@@ -263,3 +263,44 @@ def get_stripe_session(session_id):
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
     return stripe.checkout.Session.retrieve(session_id)
+
+
+def create_premium_checkout_session(request, tienda):
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError('Stripe no está configurado. Define STRIPE_SECRET_KEY en el entorno.')
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    return stripe.checkout.Session.create(
+        mode='subscription',
+        success_url=request.build_absolute_uri('/checkout/premium/exito/') + '?session_id={CHECKOUT_SESSION_ID}',
+        cancel_url=request.build_absolute_uri('/checkout/premium/cancelado/'),
+        customer_email=tienda.vendedor.email,
+        metadata={
+            'tipo': 'suscripcion_premium',
+            'tienda_id': str(tienda.pk),
+        },
+        line_items=[
+            {
+                'price_data': {
+                    'currency': 'eur',
+                    'product_data': {
+                        'name': 'Suscripción Premium DISTANS',
+                        'description': 'Acceso Premium durante 1 mes.',
+                    },
+                    'unit_amount': 1499,
+                    'recurring': {'interval': 'month'},
+                },
+                'quantity': 1,
+            }
+        ],
+    )
+
+
+def activate_premium_store(tienda):
+    from datetime import date, timedelta
+
+    tienda.plan = tienda.Plan.PREMIUM
+    tienda.suscripcion_activa = True
+    tienda.pasarela_activa = True
+    tienda.fecha_renovacion = date.today() + timedelta(days=30)
+    tienda.save(update_fields=['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion', 'updated_at'])

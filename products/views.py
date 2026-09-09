@@ -4,11 +4,12 @@ from django.forms import modelformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
 from django.db.models import Case, Count, ExpressionWrapper, F, FloatField, Value, When
-from django.db.models.functions import Least
+from django.db.models.functions import Least, TruncDate
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from functools import wraps
 from decimal import Decimal, InvalidOperation
+from datetime import timedelta
 
 from users.models import User
 from carts.models import Carrito, ProductoCarrito
@@ -33,37 +34,41 @@ def _visitor_key(request):
 
 
 def _record_product_visit(request, producto):
-	if not _can_record_guest_visit(request):
+	if not _can_record_guest_visit(request, 'product', producto.pk):
 		return
 	if request.user.is_authenticated:
 		VisitaProducto.objects.get_or_create(producto=producto, session_key=_visitor_key(request))
 	else:
 		VisitaProducto.objects.create(producto=producto, session_key=_visitor_key(request))
-	_mark_guest_visit(request)
+	_mark_guest_visit(request, 'product', producto.pk)
 
 
 def _record_store_visit(request, tienda):
-	if not _can_record_guest_visit(request):
+	if not _can_record_guest_visit(request, 'store', tienda.pk):
 		return
 	if request.user.is_authenticated:
 		VisitaTienda.objects.get_or_create(tienda=tienda, session_key=_visitor_key(request))
 	else:
 		VisitaTienda.objects.create(tienda=tienda, session_key=_visitor_key(request))
-	_mark_guest_visit(request)
+	_mark_guest_visit(request, 'store', tienda.pk)
 
 
-def _can_record_guest_visit(request):
+def _guest_visit_session_key(scope, object_id):
+	return f'last_guest_visit_at:{scope}:{object_id}'
+
+
+def _can_record_guest_visit(request, scope, object_id):
 	if request.user.is_authenticated:
 		return True
-	last_visit = request.session.get('last_guest_visit_at')
+	last_visit = request.session.get(_guest_visit_session_key(scope, object_id))
 	if last_visit is None:
 		return True
 	return timezone.now().timestamp() - float(last_visit) >= 20 * 60
 
 
-def _mark_guest_visit(request):
+def _mark_guest_visit(request, scope, object_id):
 	if not request.user.is_authenticated:
-		request.session['last_guest_visit_at'] = timezone.now().timestamp()
+		request.session[_guest_visit_session_key(scope, object_id)] = timezone.now().timestamp()
 		request.session.modified = True
 
 
@@ -183,8 +188,50 @@ def seller_home(request):
 	if not _is_seller(request.user):
 		return redirect('account_detail')
 
-	stores = _get_accessible_stores(request.user)
-	return render(request, 'products/seller_home.html', {'stores': stores})
+	stores = list(_get_accessible_stores(request.user).annotate(
+		visitas_count=Count('visitas', distinct=True),
+		visitas_productos_count=Count('productos__visitas', distinct=True),
+	))
+	store_ids = [store.pk for store in stores]
+	for store in stores:
+		store.product_metrics = store.productos.annotate(
+			visitas_count=Count('visitas', distinct=True),
+		).order_by('-visitas_count', 'nombre')
+
+	start_date = timezone.localdate() - timedelta(days=6)
+	store_visits_by_day = {
+		item['day']: item['total']
+		for item in VisitaTienda.objects.filter(
+			tienda_id__in=store_ids,
+			created_at__date__gte=start_date,
+		).annotate(day=TruncDate('created_at')).values('day').annotate(total=Count('id'))
+	}
+	product_visits_by_day = {
+		item['day']: item['total']
+		for item in VisitaProducto.objects.filter(
+			producto__tienda_id__in=store_ids,
+			created_at__date__gte=start_date,
+		).annotate(day=TruncDate('created_at')).values('day').annotate(total=Count('id'))
+	}
+	visit_chart = []
+	for day_offset in range(7):
+		day = start_date + timedelta(days=day_offset)
+		store_total = store_visits_by_day.get(day, 0)
+		product_total = product_visits_by_day.get(day, 0)
+		visit_chart.append({
+			'label': day.strftime('%d/%m'),
+			'store_total': store_total,
+			'product_total': product_total,
+			'total': store_total + product_total,
+		})
+	chart_max = max((item['total'] for item in visit_chart), default=0)
+	for item in visit_chart:
+		item['height'] = round(item['total'] / chart_max * 100) if chart_max else 0
+
+	return render(request, 'products/seller_home.html', {
+		'stores': stores,
+		'visit_chart': visit_chart,
+	})
 
 
 @login_required
@@ -193,7 +240,7 @@ def store_detail(request, pk):
 		return redirect('account_detail')
 
 	tienda = _get_store_for_user(request.user, pk)
-	productos = tienda.productos.order_by('nombre')
+	productos = tienda.productos.annotate(visitas_count=Count('visitas', distinct=True)).order_by('nombre')
 
 	return render(
 		request,
@@ -201,6 +248,7 @@ def store_detail(request, pk):
 		{
 			'store': tienda,
 			'products': productos,
+			'store_visits_count': tienda.visitas.count(),
 		},
 	)
 

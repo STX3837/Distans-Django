@@ -168,6 +168,7 @@
         <div class="store-meta">
             <p>{{ store.descripcion|default:"Sin descripción" }}</p>
             <p>{{ store.direccion|default:"Sin dirección" }}</p>
+            <p><strong>{{ store_visits_count }}</strong> visualizaciones de la tienda</p>
         </div>
     </div>
 
@@ -204,6 +205,7 @@
                                 <span>{{ product.precio }} €</span>
                             {% endif %}
                         </div>
+                        <p>{{ product.visitas_count }} visualizaciones</p>
                     </div>
                 </a>
             {% endfor %}
