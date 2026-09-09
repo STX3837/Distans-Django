@@ -21,7 +21,9 @@ from .models import Pedido
 from .utils import (
 	build_cart_snapshot,
 	create_order_from_checkout,
+	create_premium_checkout_session,
 	create_stripe_checkout_session,
+	activate_premium_store,
 	get_stripe_session,
 	mark_order_as_paid,
 	process_secure_payment,
@@ -36,6 +38,16 @@ def _checkout_session(request):
 def _clear_checkout_session(request):
 	request.session.pop('checkout', None)
 	request.session.pop('checkout_order_id', None)
+
+
+def _stripe_metadata_value(stripe_session, key, default=''):
+	metadata = getattr(stripe_session, 'metadata', None)
+	if metadata is None:
+		return default
+	try:
+		return metadata[key]
+	except (KeyError, TypeError, AttributeError):
+		return default
 
 
 def _guest_order_codes(request):
@@ -340,6 +352,13 @@ def stripe_webhook(request):
 	if not session_id:
 		return HttpResponse(status=200)
 
+	metadata = data_object.get('metadata', {})
+	if metadata.get('tipo') == 'suscripcion_premium':
+		tienda = Tienda.objects.filter(pk=metadata.get('tienda_id')).first()
+		if event_type == 'checkout.session.completed' and tienda:
+			activate_premium_store(tienda)
+		return HttpResponse(status=200)
+
 	pedido = Pedido.objects.filter(stripe_checkout_session_id=session_id).first()
 	if not pedido:
 		return HttpResponse(status=200)
@@ -350,6 +369,59 @@ def stripe_webhook(request):
 		release_order_stock_reservation(pedido)
 
 	return HttpResponse(status=200)
+
+
+@login_required
+def premium_checkout(request):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda = getattr(request.user, 'tienda', None)
+	if tienda is None or tienda.plan == Tienda.Plan.PREMIUM:
+		return redirect('seller_home')
+
+	try:
+		session = create_premium_checkout_session(request, tienda)
+	except RuntimeError as exc:
+		messages.error(request, str(exc))
+		return redirect('seller_home')
+	except stripe.error.StripeError:
+		messages.error(request, 'No se ha podido iniciar el pago de Premium.')
+		return redirect('seller_home')
+
+	return redirect(session.url)
+
+
+@login_required
+def premium_checkout_success(request):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	session_id = request.GET.get('session_id', '')
+	try:
+		stripe_session = get_stripe_session(session_id)
+	except (RuntimeError, stripe.error.StripeError):
+		messages.error(request, 'No se ha podido validar el pago de Premium.')
+		return redirect('seller_home')
+
+	tienda = getattr(request.user, 'tienda', None)
+	metadata_type = _stripe_metadata_value(stripe_session, 'tipo')
+	metadata_store_id = _stripe_metadata_value(stripe_session, 'tienda_id')
+	if stripe_session.payment_status != 'paid' or metadata_type != 'suscripcion_premium' or not tienda or str(tienda.pk) != metadata_store_id:
+		messages.error(request, 'El pago de Premium no está confirmado.')
+		return redirect('seller_home')
+
+	activate_premium_store(tienda)
+	messages.success(request, 'Tu suscripción Premium está activa durante 1 mes.')
+	return redirect('seller_home')
+
+
+@login_required
+def premium_checkout_cancel(request):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+	messages.info(request, 'El pago de Premium ha sido cancelado.')
+	return redirect('seller_home')
 
 
 @buyer_or_guest_required
