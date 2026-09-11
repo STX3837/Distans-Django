@@ -1,90 +1,113 @@
-# Distans-Django 🌍
+# Distans-Django
 
-Proyecto base configurado con **Django**, **GeoDjango** y **PostgreSQL + PostGIS**, completamente dockerizado para facilitar su desarrollo y despliegue.
+Aplicacion web para conectar comercios y compradores mediante Django, GeoDjango y PostgreSQL con PostGIS. El proyecto esta preparado para ejecutarse con Docker Compose, que proporciona Django, GDAL, PostgreSQL y PostGIS en un entorno reproducible.
 
-## 📋 Requisitos previos
+## Requisitos
 
-Para ejecutar este proyecto en tu máquina local, necesitas:
+- Git
+- Docker Desktop con Docker Compose
 
-- **Git**
-- **Docker Desktop** (incluye Docker Compose)
+No es necesario instalar Python, Django, GDAL ni PostgreSQL en Windows si se utiliza Docker.
 
-## 🚀 Instalación y despliegue local
-
-Sigue estos pasos para levantar el entorno desde cero.
+## Instalacion
 
 ### 1. Clonar el repositorio
-
-Repositorio: [https://github.com/STX3837/Distans-Django.git](https://github.com/STX3837/Distans-Django.git)
 
 ```bash
 git clone https://github.com/STX3837/Distans-Django.git
 cd Distans-Django
 ```
 
-### 2. Configurar variables de entorno
+### 2. Crear el archivo `.env`
 
-Crea un archivo `.env` en la raíz del proyecto (al mismo nivel que `docker-compose.yml`) con este contenido:
+Crea `.env` en la raiz del proyecto, junto a `docker-compose.yml`:
 
 ```env
 DB_NAME=mi_base_datos
 DB_USER=mi_usuario
 DB_PASSWORD=una_contrasena_segura
+
+# Opcional. Necesario para probar los pagos con Stripe.
+STRIPE_PUBLIC_KEY=pk_test_REPLACE_WITH_YOUR_KEY
+STRIPE_SECRET_KEY=sk_test_REPLACE_WITH_YOUR_KEY
+STRIPE_WEBHOOK_SECRET=whsec_REPLACE_WITH_YOUR_SECRET
+
+# Opcionales para el entorno local.
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
-### 3. Construir y levantar contenedores
+El archivo `.env` no debe subirse al repositorio. Para una prueba sin Stripe se pueden dejar vacias sus tres variables; el pago contra reembolso seguira disponible.
 
-Con Docker ejecutándose, inicia los servicios en segundo plano:
+### 3. Construir y arrancar los servicios
+
+Con Docker Desktop en ejecucion:
 
 ```bash
 docker compose up -d --build
 ```
 
-Nota: La primera ejecución puede tardar varios minutos porque se descargan imágenes y se construyen contenedores.
+La primera ejecucion puede tardar varios minutos. Los servicios principales son:
+
+- `web`: aplicacion Django en `http://localhost:8000`.
+- `db`: PostgreSQL con PostGIS.
+- `cart_cleanup`: limpieza automatica de carritos de invitados caducados.
 
 ### 4. Aplicar migraciones
-
-Prepara la base de datos creando las tablas necesarias:
 
 ```bash
 docker compose exec web python manage.py migrate
 ```
 
-### 5. Crear superusuario (opcional)
+Si la base de datos aun esta arrancando, espera unos segundos y repite el comando.
 
-Para acceder al panel de administración de Django:
+### 5. Crear un usuario administrador
 
 ```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-## 💻 Acceso a la aplicación
+El panel de administracion esta disponible en `http://localhost:8000/admin`.
 
-Una vez completados los pasos anteriores:
+## Probar Stripe
 
-- Aplicación web: http://localhost:8000
-- Panel de administración: http://localhost:8000/admin
+Stripe debe utilizarse en modo test. Al iniciar el pago mediante pasarela, utiliza estos datos:
 
-## 🛠️ Comandos útiles
+| Campo | Valor |
+| --- | --- |
+| Numero de tarjeta | `4242 4242 4242 4242` |
+| Caducidad | Cualquier fecha futura, por ejemplo `12/34` |
+| CVC | Cualquier numero de tres digitos, por ejemplo `123` |
+| Codigo postal | Cualquier codigo postal valido |
 
-Como el proyecto está encapsulado en Docker, los comandos de Django se ejecutan dentro del contenedor `web`.
+No utilices tarjetas reales. Las claves `pk_test_`, `sk_test_` y `whsec_` deben pertenecer a una cuenta de Stripe en modo test.
 
-Detener contenedores:
+## Ejecutar las pruebas
+
+La suite completa se ejecuta dentro del contenedor para disponer de PostGIS y GDAL:
 
 ```bash
-docker compose down
+docker compose run --rm web python manage.py test
 ```
 
-Ver logs en tiempo real:
+Comprobar que no faltan migraciones:
+
+```bash
+docker compose run --rm web python manage.py makemigrations --check --dry-run
+```
+
+## Comandos utiles
+
+Ver los logs de Django:
 
 ```bash
 docker compose logs -f web
 ```
 
-Crear una nueva app de Django:
+Abrir un shell de Django:
 
 ```bash
-docker compose exec web python manage.py startapp nombre_de_la_app
+docker compose exec web python manage.py shell
 ```
 
 Crear nuevas migraciones:
@@ -93,32 +116,36 @@ Crear nuevas migraciones:
 docker compose exec web python manage.py makemigrations
 ```
 
-Abrir el shell de Django:
-
-```bash
-docker compose exec web python manage.py shell
-```
-
-Limpiar carritos de invitados con sesión expirada/inexistente:
+Limpiar carritos de invitados manualmente:
 
 ```bash
 docker compose exec web python manage.py cleanup_guest_carts
 ```
 
-Probar la limpieza sin borrar datos (`dry-run`):
+Simular la limpieza sin borrar datos:
 
 ```bash
 docker compose exec web python manage.py cleanup_guest_carts --dry-run
 ```
 
-Limpieza periodica automatica de carritos invitados:
-
-- Se ejecuta con el servicio `cart_cleanup` de Docker Compose.
-- Intervalo por defecto: cada 24 horas (`CART_CLEANUP_INTERVAL_SECONDS=86400`).
-- Para cambiar el intervalo, edita ese valor en `docker-compose.yml`.
-
-Ver logs del limpiador periodico:
+Ver los logs del limpiador automatico:
 
 ```bash
 docker compose logs -f cart_cleanup
 ```
+
+El limpiador se ejecuta cada 24 horas por defecto. El intervalo se puede cambiar con `CART_CLEANUP_INTERVAL_SECONDS` en `docker-compose.yml`.
+
+## Detener el proyecto
+
+```bash
+docker compose down
+```
+
+Para detener los contenedores y eliminar tambien el volumen de PostgreSQL:
+
+```bash
+docker compose down -v
+```
+
+El segundo comando borra los datos almacenados en la base de datos.
