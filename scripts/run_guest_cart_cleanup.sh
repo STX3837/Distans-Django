@@ -13,5 +13,6 @@ echo "[cart_cleanup] Starting periodic guest cart cleanup every ${INTERVAL_SECON
 while true; do
   echo "[cart_cleanup] Running cleanup_guest_carts at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   python manage.py cleanup_guest_carts || true
+  python manage.py expire_premium_stores || true
   sleep "${INTERVAL_SECONDS}"
 done

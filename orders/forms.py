@@ -209,3 +209,19 @@ class PedidoEstadoForm(forms.ModelForm):
     class Meta:
         model = Pedido
         fields = ['estado']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        transitions = {
+            'pendiente_pago': {'cancelado'},
+            'completado': {'preparacion', 'cancelado'},
+            'preparacion': {'enviado', 'cancelado'},
+            'enviado': {'entregado'},
+            'entregado': set(),
+            'cancelado': set(),
+        }
+        current_state = self.instance.estado if self.instance else None
+        allowed_states = transitions.get(current_state, set())
+        self.fields['estado'].choices = [
+            choice for choice in Pedido.ESTADO_CHOICES if choice[0] in allowed_states
+        ]

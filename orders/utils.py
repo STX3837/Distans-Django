@@ -180,6 +180,8 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             ProductoPedido.objects.create(
                 pedido=pedido,
                 producto=producto,
+                nombre_producto=producto.nombre,
+                nombre_tienda=producto.tienda.nombre if producto.tienda else '',
                 cantidad=line['cantidad'],
                 precio_unitario=line['precio_unitario'],
                 total=line['subtotal_neto'],

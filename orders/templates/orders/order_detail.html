@@ -192,7 +192,7 @@
             <tbody>
                 {% for item in order_items %}
                     <tr>
-                        <td>{{ item.producto.nombre }}</td>
+                        <td>{{ item.nombre_producto|default:item.producto.nombre|default:'Producto eliminado' }}</td>
                         <td>{{ item.cantidad }}</td>
                         <td>{{ item.precio_unitario }} €</td>
                         <td>{{ item.total }} €</td>

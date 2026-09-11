@@ -63,7 +63,9 @@ class Pedido(models.Model):
 
 class ProductoPedido(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='items')
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True, blank=True)
+    nombre_producto = models.CharField(max_length=255, blank=True)
+    nombre_tienda = models.CharField(max_length=255, blank=True)
     cantidad = models.IntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     total = models.DecimalField(max_digits=10, decimal_places=2)
@@ -71,7 +73,8 @@ class ProductoPedido(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.cantidad}x {self.producto.nombre} - {self.pedido.codigo_pedido}"
+        nombre = self.nombre_producto or (self.producto.nombre if self.producto else 'Producto eliminado')
+        return f"{self.cantidad}x {nombre} - {self.pedido.codigo_pedido}"
 
     class Meta:
         unique_together = ('pedido', 'producto')

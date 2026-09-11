@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class Tienda(models.Model):
@@ -30,7 +31,8 @@ class Tienda(models.Model):
 
     @property
     def permite_compra_online(self):
-        return self.plan == self.Plan.PREMIUM and self.suscripcion_activa and self.pasarela_activa
+        subscription_current = self.fecha_renovacion is None or self.fecha_renovacion >= timezone.localdate()
+        return self.plan == self.Plan.PREMIUM and self.suscripcion_activa and self.pasarela_activa and subscription_current
 
     class Meta:
         ordering = ['-created_at']

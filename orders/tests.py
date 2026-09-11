@@ -517,3 +517,122 @@ class OrderTrackingAndManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'PED-STORE-OK')
         self.assertNotContains(response, 'PED-STORE-OTHER')
+
+    def test_vendor_cannot_skip_order_statuses(self):
+        pedido = Pedido.objects.create(
+            codigo_pedido='PED-STATUS-01',
+            comprador_nombre='Comprador',
+            comprador_apellidos='Prueba',
+            comprador_email='comprador@example.com',
+            telefono='600000004',
+            subtotal=Decimal('50.00'),
+            impuesto=Decimal('10.50'),
+            coste_entrega=Decimal('0.00'),
+            total=Decimal('60.50'),
+            metodo_pago='contrarrembolso',
+            direccion_envio='Calle 1',
+            ciudad_envio='Madrid',
+            codigo_postal_envio='28001',
+            direccion_facturacion='Calle 1',
+            ciudad_facturacion='Madrid',
+            codigo_postal_facturacion='28001',
+            estado='completado',
+        )
+        pedido.items.create(
+            producto=self.product,
+            nombre_producto=self.product.nombre,
+            nombre_tienda=self.store.nombre,
+            cantidad=1,
+            precio_unitario=Decimal('50.00'),
+            total=Decimal('50.00'),
+        )
+        self.client.force_login(self.vendor)
+
+        response = self.client.post(
+            reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido}),
+            {'estado': 'entregado'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.estado, 'completado')
+
+    def test_canceling_reserved_order_releases_stock(self):
+        pedido = Pedido.objects.create(
+            codigo_pedido='PED-CANCEL-STATUS-01',
+            comprador_nombre='Comprador',
+            comprador_apellidos='Prueba',
+            comprador_email='comprador@example.com',
+            telefono='600000005',
+            subtotal=Decimal('50.00'),
+            impuesto=Decimal('10.50'),
+            coste_entrega=Decimal('0.00'),
+            total=Decimal('60.50'),
+            metodo_pago='pasarela',
+            direccion_envio='Calle 1',
+            ciudad_envio='Madrid',
+            codigo_postal_envio='28001',
+            direccion_facturacion='Calle 1',
+            ciudad_facturacion='Madrid',
+            codigo_postal_facturacion='28001',
+            estado='pendiente_pago',
+            stock_reservado=True,
+        )
+        pedido.items.create(
+            producto=self.product,
+            nombre_producto=self.product.nombre,
+            nombre_tienda=self.store.nombre,
+            cantidad=1,
+            precio_unitario=Decimal('50.00'),
+            total=Decimal('50.00'),
+        )
+        self.product.stock = 4
+        self.product.save(update_fields=['stock'])
+        self.client.force_login(self.vendor)
+
+        response = self.client.post(
+            reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido}),
+            {'estado': 'cancelado'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        pedido.refresh_from_db()
+        self.product.refresh_from_db()
+        self.assertEqual(pedido.estado, 'cancelado')
+        self.assertFalse(pedido.stock_reservado)
+        self.assertEqual(self.product.stock, 5)
+
+    def test_order_line_keeps_product_name_after_product_deletion(self):
+        pedido = Pedido.objects.create(
+            codigo_pedido='PED-HISTORY-01',
+            comprador_nombre='Comprador',
+            comprador_apellidos='Prueba',
+            comprador_email='comprador@example.com',
+            telefono='600000006',
+            subtotal=Decimal('50.00'),
+            impuesto=Decimal('10.50'),
+            coste_entrega=Decimal('0.00'),
+            total=Decimal('60.50'),
+            metodo_pago='contrarrembolso',
+            direccion_envio='Calle 1',
+            ciudad_envio='Madrid',
+            codigo_postal_envio='28001',
+            direccion_facturacion='Calle 1',
+            ciudad_facturacion='Madrid',
+            codigo_postal_facturacion='28001',
+            estado='completado',
+        )
+        item = pedido.items.create(
+            producto=self.product,
+            nombre_producto=self.product.nombre,
+            nombre_tienda=self.store.nombre,
+            cantidad=1,
+            precio_unitario=Decimal('50.00'),
+            total=Decimal('50.00'),
+        )
+
+        self.product.delete()
+
+        item.refresh_from_db()
+        self.assertIsNone(item.producto)
+        self.assertEqual(item.nombre_producto, 'Producto tracking')

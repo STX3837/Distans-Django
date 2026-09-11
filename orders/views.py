@@ -555,6 +555,9 @@ def vendor_order_detail(request, codigo_pedido):
 	if request.method == 'POST':
 		form = PedidoEstadoForm(request.POST, instance=pedido)
 		if form.is_valid():
+			if form.cleaned_data['estado'] == 'cancelado' and pedido.stock_reservado:
+				release_order_stock_reservation(pedido)
+			pedido.refresh_from_db()
 			form.save()
 			messages.success(request, 'El estado del pedido se ha actualizado correctamente.')
 			redirect_target = f"{reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido})}?tienda={selected_store.pk}" if selected_store else reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido})
