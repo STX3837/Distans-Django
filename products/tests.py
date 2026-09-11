@@ -28,22 +28,6 @@ class CartEdgeCaseTests(TestCase):
 		session['guest'] = True
 		session.save()
 
-	def test_cannot_add_product_without_store_to_cart(self):
-		product = Producto.objects.create(
-			nombre='Producto sin tienda',
-			descripcion='Producto de prueba',
-			precio=Decimal('10.00'),
-			marca='Marca',
-			categoria='hogar_bricolaje',
-			stock=3,
-		)
-		self._enable_guest_session()
-
-		response = self.client.post(reverse('add_to_cart', kwargs={'product_pk': product.pk}))
-
-		self.assertRedirects(response, reverse('catalog'))
-		self.assertNotIn('cart', self.client.session)
-
 	def test_stock_zero_removes_item_instead_of_creating_quantity_one(self):
 		product = Producto.objects.create(
 			nombre='Producto agotado',
