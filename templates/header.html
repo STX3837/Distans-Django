@@ -2,7 +2,7 @@
 
 <header class="header">
     <div class="header-container">
-        <a href="/" class="header-logo">
+        <a href="{% if user.is_authenticated %}{% url 'post_login_redirect' %}{% elif request.session.guest %}{% url 'catalog' %}{% else %}{% url 'login' %}{% endif %}" class="header-logo">
             <span class="logo-icon">🌍</span>
             <span class="logo-text">DISTANS</span>
         </a>
