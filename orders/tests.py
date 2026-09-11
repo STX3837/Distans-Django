@@ -106,7 +106,7 @@ class CheckoutFlowTests(TestCase):
                 'codigo_postal_facturacion': '28001',
             },
         )
-        self.assertRedirects(response, reverse('checkout_payment'))
+        self.assertRedirects(response, reverse('checkout_payment'), fetch_redirect_response=False)
 
         response = self.client.post(
             reverse('checkout_payment'),
@@ -359,6 +359,45 @@ class OrderTrackingAndManagementTests(TestCase):
 
         response = self.client.post(reverse('order_lookup'), {'codigo_pedido': 'ped-test-01'})
         self.assertRedirects(response, reverse('order_detail', args=['PED-TEST-01']))
+
+    def test_guest_cannot_cancel_another_pending_order(self):
+        pedido = Pedido.objects.create(
+            codigo_pedido='PED-CANCEL-01',
+            comprador_nombre='Ana',
+            comprador_apellidos='Pérez',
+            comprador_email='ana@example.com',
+            telefono='600123123',
+            subtotal=Decimal('50.00'),
+            impuesto=Decimal('10.50'),
+            coste_entrega=Decimal('0.00'),
+            total=Decimal('60.50'),
+            metodo_pago='pasarela',
+            direccion_envio='Calle Mayor 1',
+            ciudad_envio='Madrid',
+            codigo_postal_envio='28001',
+            direccion_facturacion='Calle Mayor 1',
+            ciudad_facturacion='Madrid',
+            codigo_postal_facturacion='28001',
+            estado='pendiente_pago',
+            stock_reservado=True,
+        )
+        pedido.items.create(
+            producto=self.product,
+            cantidad=1,
+            precio_unitario=Decimal('50.00'),
+            total=Decimal('50.00'),
+        )
+        session = self.client.session
+        session['guest'] = True
+        session['checkout_order_id'] = pedido.pk + 1
+        session.save()
+
+        response = self.client.get(reverse('checkout_payment_cancel'), {'pedido_id': pedido.pk})
+
+        self.assertRedirects(response, reverse('checkout_payment'), fetch_redirect_response=False)
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.estado, 'pendiente_pago')
+        self.assertTrue(pedido.stock_reservado)
 
     def test_vendor_can_view_and_filter_orders(self):
         self.client.force_login(self.vendor)

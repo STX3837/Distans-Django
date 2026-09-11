@@ -323,7 +323,15 @@ def checkout_payment_cancel(request):
 	pedido_id = request.GET.get('pedido_id') or request.session.get('checkout_order_id')
 	if pedido_id:
 		pedido = Pedido.objects.filter(pk=pedido_id).first()
-		if pedido:
+		can_cancel = bool(
+			pedido
+			and pedido.estado == 'pendiente_pago'
+			and (
+				request.user.is_authenticated and pedido.usuario_id == request.user.pk
+				or not request.user.is_authenticated and request.session.get('checkout_order_id') == pedido.pk
+			)
+		)
+		if can_cancel:
 			release_order_stock_reservation(pedido)
 
 	messages.warning(request, 'Has cancelado el pago. La reserva de stock se ha liberado.')

@@ -324,7 +324,11 @@
             <h1>{{ product.nombre }}</h1>
 
             <div class="product-store">
-                Vendido por: <a href="{% url 'store_products' product.tienda.pk %}">{{ product.tienda.nombre }}</a>
+                {% if product.tienda_id %}
+                    Vendido por: <a href="{% url 'store_products' product.tienda.pk %}">{{ product.tienda.nombre }}</a>
+                {% else %}
+                    Producto sin tienda asignada
+                {% endif %}
             </div>
 
             <form method="post" action="{% url 'toggle_product_favorite' product.pk %}" class="favorite-form">

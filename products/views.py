@@ -368,6 +368,9 @@ def product_delete(request, store_pk, pk):
 def product_detail(request, pk):
 	"""Detalle del producto - accesible para registrados y no registrados"""
 	producto = get_object_or_404(Producto.objects.select_related('tienda'), pk=pk)
+	if producto.tienda is None:
+		messages.warning(request, 'Este producto no está asociado a una tienda.')
+		return redirect('catalog')
 	_record_product_visit(request, producto)
 	
 	return render(
@@ -384,6 +387,9 @@ def product_detail(request, pk):
 def add_to_cart(request, product_pk):
 	"""Agregar producto al carrito"""
 	producto = get_object_or_404(Producto, pk=product_pk)
+	if producto.tienda is None:
+		messages.warning(request, 'Este producto no está asociado a una tienda.')
+		return redirect('catalog')
 	if producto.tienda and not producto.tienda.permite_compra_online:
 		messages.warning(request, 'Este producto solo está disponible para compra en la tienda física.')
 		return redirect('product_detail', pk=producto.pk)
@@ -391,6 +397,7 @@ def add_to_cart(request, product_pk):
 	
 	if cantidad < 1:
 		cantidad = 1
+	cantidad = min(cantidad, producto.stock)
 
 	if not _is_product_orderable(producto):
 		messages.error(request, 'Este producto no está disponible para compra en este momento.')
@@ -453,7 +460,9 @@ def update_cart_item(request, product_pk):
 	if nueva_cantidad <= 0:
 		return remove_cart_item(request, product_pk)
 
-	nueva_cantidad = min(nueva_cantidad, max(producto.stock, 1))
+	nueva_cantidad = min(nueva_cantidad, producto.stock)
+	if nueva_cantidad <= 0:
+		return remove_cart_item(request, product_pk)
 
 	if request.user.is_authenticated:
 		carrito = _get_or_create_cart(request)

@@ -12,6 +12,62 @@ from users.models import User
 from .models import Producto, VisitaProducto
 
 
+class CartEdgeCaseTests(TestCase):
+	def setUp(self):
+		self.seller = User.objects.create_user(
+			email='vendedor-carrito@test.com',
+			password='Password123',
+			nombre='Vendedor',
+			apellidos='Carrito',
+			rol=User.Role.SELLER,
+		)
+		self.store = Tienda.objects.create(nombre='Tienda carrito', vendedor=self.seller)
+
+	def _enable_guest_session(self):
+		session = self.client.session
+		session['guest'] = True
+		session.save()
+
+	def test_cannot_add_product_without_store_to_cart(self):
+		product = Producto.objects.create(
+			nombre='Producto sin tienda',
+			descripcion='Producto de prueba',
+			precio=Decimal('10.00'),
+			marca='Marca',
+			categoria='hogar_bricolaje',
+			stock=3,
+		)
+		self._enable_guest_session()
+
+		response = self.client.post(reverse('add_to_cart', kwargs={'product_pk': product.pk}))
+
+		self.assertRedirects(response, reverse('catalog'))
+		self.assertNotIn('cart', self.client.session)
+
+	def test_stock_zero_removes_item_instead_of_creating_quantity_one(self):
+		product = Producto.objects.create(
+			nombre='Producto agotado',
+			descripcion='Producto de prueba',
+			precio=Decimal('10.00'),
+			marca='Marca',
+			categoria='hogar_bricolaje',
+			stock=0,
+			tienda=self.store,
+		)
+		session = self.client.session
+		session['guest'] = True
+		session['cart'] = {str(product.pk): {'id': product.pk, 'cantidad': 1}}
+		session.save()
+
+		response = self.client.post(
+			reverse('update_cart_item', kwargs={'product_pk': product.pk}),
+			{'cantidad': 1},
+		)
+
+		self.assertRedirects(response, reverse('cart_view'))
+		self.assertNotIn(str(product.pk), self.client.session.get('cart', {}))
+
+
 class SellerMetricsTests(TestCase):
 	def setUp(self):
 		self.seller = User.objects.create_user(
