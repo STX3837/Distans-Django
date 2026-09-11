@@ -63,3 +63,19 @@ class StoreMapViewTests(TestCase):
         self.assertNotContains(response, far_store.nombre)
         self.assertContains(response, 'L.circle')
         self.assertContains(response, 'storePopup')
+
+    def test_admin_can_delete_store_without_image(self):
+        admin = User.objects.create_user(
+            email='admin@test.com',
+            password='Password123',
+            nombre='Admin',
+            apellidos='Prueba',
+            rol=User.Role.ADMIN,
+        )
+        store = Tienda.objects.create(nombre='Tienda sin imagen', vendedor=self.seller)
+        self.client.force_login(admin)
+
+        response = self.client.post(reverse('store_delete_admin', kwargs={'pk': store.pk}))
+
+        self.assertRedirects(response, reverse('store_list_admin'))
+        self.assertFalse(Tienda.objects.filter(pk=store.pk).exists())

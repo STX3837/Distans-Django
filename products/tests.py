@@ -67,6 +67,25 @@ class CartEdgeCaseTests(TestCase):
 		self.assertRedirects(response, reverse('cart_view'))
 		self.assertNotIn(str(product.pk), self.client.session.get('cart', {}))
 
+	def test_seller_can_delete_product_without_image(self):
+		product = Producto.objects.create(
+			nombre='Producto sin imagen',
+			descripcion='Producto de prueba',
+			precio=Decimal('10.00'),
+			marca='Marca',
+			categoria='hogar_bricolaje',
+			stock=2,
+			tienda=self.store,
+		)
+		self.client.force_login(self.seller)
+
+		response = self.client.post(
+			reverse('product_delete', kwargs={'store_pk': self.store.pk, 'pk': product.pk}),
+		)
+
+		self.assertRedirects(response, reverse('store_detail', kwargs={'pk': self.store.pk}))
+		self.assertFalse(Producto.objects.filter(pk=product.pk).exists())
+
 
 class SellerMetricsTests(TestCase):
 	def setUp(self):
