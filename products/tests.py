@@ -28,22 +28,6 @@ class CartEdgeCaseTests(TestCase):
 		session['guest'] = True
 		session.save()
 
-	def test_cannot_add_product_without_store_to_cart(self):
-		product = Producto.objects.create(
-			nombre='Producto sin tienda',
-			descripcion='Producto de prueba',
-			precio=Decimal('10.00'),
-			marca='Marca',
-			categoria='hogar_bricolaje',
-			stock=3,
-		)
-		self._enable_guest_session()
-
-		response = self.client.post(reverse('add_to_cart', kwargs={'product_pk': product.pk}))
-
-		self.assertRedirects(response, reverse('catalog'))
-		self.assertNotIn('cart', self.client.session)
-
 	def test_stock_zero_removes_item_instead_of_creating_quantity_one(self):
 		product = Producto.objects.create(
 			nombre='Producto agotado',
@@ -152,7 +136,8 @@ class PremiumCheckoutTests(TestCase):
 		self.assertEqual(line_item.vendedor, seller)
 
 	@patch('orders.views.get_stripe_session')
-	def test_premium_success_accepts_stripe_object_metadata(self, get_session):
+	@patch('orders.utils.stripe.Subscription.retrieve')
+	def test_premium_success_accepts_stripe_object_metadata(self, retrieve_subscription, get_session):
 		seller = User.objects.create_user(
 			email='vendedor-confirmacion@test.com',
 			password='Password123',
@@ -163,11 +148,19 @@ class PremiumCheckoutTests(TestCase):
 		store = Tienda.objects.create(nombre='Tienda confirmacion', vendedor=seller, plan=Tienda.Plan.FREEMIUM)
 		get_session.return_value = SimpleNamespace(
 			payment_status='paid',
+			subscription='sub_test',
 			metadata=stripe.StripeObject.construct_from({
 				'tipo': 'suscripcion_premium',
 				'tienda_id': str(store.pk),
 			}, None),
 		)
+		from django.utils import timezone
+		from datetime import timedelta
+		retrieve_subscription.return_value = {
+			'id': 'sub_test', 'status': 'active',
+			'metadata': {'tipo': 'suscripcion_premium', 'tienda_id': str(store.pk)},
+			'items': {'data': [{'current_period_end': int((timezone.now() + timedelta(days=31)).timestamp())}]},
+		}
 		self.client.force_login(seller)
 
 		response = self.client.get(reverse('premium_checkout_success'), {'session_id': 'cs_test'})

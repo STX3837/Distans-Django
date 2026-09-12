@@ -55,6 +55,9 @@ def post_login_redirect(request):
 
 def guest_login(request):
     """Iniciar sesión como invitado (sin crear usuario). Guarda una marca en sesión."""
+    if request.session.get('guest'):
+        return redirect('catalog')
+
     # Clear any existing authenticated session
     try:
         from django.contrib.auth import logout

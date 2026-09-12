@@ -35,7 +35,7 @@ class Producto(models.Model):
     disponible = models.BooleanField(default=True)
     destacado = models.BooleanField(default=False)
     stock = models.IntegerField(default=0)
-    tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='productos', null=True, blank=True)
+    tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='productos')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

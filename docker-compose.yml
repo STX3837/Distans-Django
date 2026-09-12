@@ -34,6 +34,22 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
 
+  order_cleanup:
+    build: .
+    command: sh /app/scripts/run_order_cleanup.sh
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+
   cart_cleanup:
     build: .
     container_name: django_cart_cleanup

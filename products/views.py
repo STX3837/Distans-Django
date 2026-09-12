@@ -19,6 +19,7 @@ from .forms import ProductoForm, ProductoStockForm
 from .models import Producto, VisitaProducto
 from stores.models import Tienda, VisitaTienda
 from stores.utils import filter_products_by_geo, get_catalog_mode, get_geo_search_state, store_is_within_radius
+from stores.utils import online_store_filter
 
 
 def _ensure_session_key(request):
@@ -572,6 +573,9 @@ def store_update(request, pk):
 	if request.method == 'POST':
 		from stores.forms import TiendaForm
 		form = TiendaForm(request.POST, request.FILES, instance=tienda)
+		if not request.user.is_staff:
+			for field in ['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion']:
+				form.fields.pop(field, None)
 		if form.is_valid():
 			form.save()
 			messages.success(request, 'La tienda se ha actualizado correctamente.')
@@ -579,6 +583,9 @@ def store_update(request, pk):
 	else:
 		from stores.forms import TiendaForm
 		form = TiendaForm(instance=tienda)
+		if not request.user.is_staff:
+			for field in ['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion']:
+				form.fields.pop(field, None)
 
 	return render(
 		request,
@@ -627,11 +634,7 @@ def _filtered_products(request, tienda=None):
 	if tienda is not None:
 		productos = productos.filter(tienda=tienda)
 	if get_catalog_mode(request) == 'online':
-		productos = productos.filter(
-			tienda__plan=Tienda.Plan.PREMIUM,
-			tienda__suscripcion_activa=True,
-			tienda__pasarela_activa=True,
-		)
+		productos = productos.filter(online_store_filter('tienda__'))
 	productos = _rating_annotations(productos, 'visitas', 'productopedido__pedido')
 
 	categoria = request.GET.get('categoria', '').strip()
