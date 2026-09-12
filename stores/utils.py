@@ -1,4 +1,16 @@
 from math import atan2, cos, radians, sin, sqrt
+from django.db.models import Q
+from django.utils import timezone
+
+
+def online_store_filter(prefix=''):
+    """The same expiry rules as Tienda.permite_compra_online, for querysets."""
+    return Q(**{prefix + 'plan': 'premium', prefix + 'suscripcion_activa': True, prefix + 'pasarela_activa': True}) & (
+        Q(**{prefix + 'stripe_subscription_id__isnull': False, prefix + 'premium_hasta__gt': timezone.now()})
+        | (Q(**{prefix + 'stripe_subscription_id__isnull': True}) & (
+            Q(**{prefix + 'fecha_renovacion__isnull': True}) | Q(**{prefix + 'fecha_renovacion__gte': timezone.localdate()})
+        ))
+    )
 
 
 CATALOG_MODE_ALL = 'all'

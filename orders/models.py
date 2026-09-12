@@ -39,6 +39,14 @@ class Pedido(models.Model):
     coste_entrega = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2)
     metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES)
+    estado_pago = models.CharField(max_length=25, choices=[
+        ('pendiente', 'Pendiente de pago'),
+        ('pagado', 'Pagado online'),
+        ('cobro_tienda', 'Cobro al entregar, gestionado por la tienda'),
+        ('cancelado', 'Pago cancelado'),
+        ('reembolso_pendiente', 'Reembolso online pendiente'),
+    ], default='pendiente')
+    reserva_expira = models.DateTimeField(null=True, blank=True)
     direccion_envio = models.TextField()
     ciudad_envio = models.CharField(max_length=100)
     codigo_postal_envio = models.CharField(max_length=20)
@@ -47,6 +55,7 @@ class Pedido(models.Model):
     codigo_postal_facturacion = models.CharField(max_length=20)
     stripe_checkout_session_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     stock_reservado = models.BooleanField(default=False)
+    stock_descontado = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,6 +73,7 @@ class Pedido(models.Model):
 class ProductoPedido(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='items')
     producto = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True, blank=True)
+    tienda = models.ForeignKey('stores.Tienda', on_delete=models.SET_NULL, null=True, blank=True, related_name='lineas_pedido')
     nombre_producto = models.CharField(max_length=255, blank=True)
     nombre_tienda = models.CharField(max_length=255, blank=True)
     cantidad = models.IntegerField()

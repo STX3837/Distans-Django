@@ -11,9 +11,9 @@ class ProductoPedidoInline(admin.TabularInline):
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
     list_display = ('codigo_pedido', 'comprador_nombre', 'usuario', 'estado', 'total', 'fecha', 'created_at')
-    list_filter = ('estado', 'metodo_pago', 'fecha')
+    list_filter = ('estado', 'estado_pago', 'metodo_pago', 'fecha')
     search_fields = ('codigo_pedido', 'comprador_nombre', 'comprador_apellidos', 'comprador_email', 'usuario__email')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'estado_pago', 'stripe_checkout_session_id', 'stock_reservado', 'stock_descontado', 'reserva_expira')
     inlines = [ProductoPedidoInline]
     fieldsets = (
         ('Información del pedido', {
@@ -27,7 +27,7 @@ class PedidoAdmin(admin.ModelAdmin):
         }),
         ('Pago y envío', {
             'fields': (
-                'metodo_pago',
+                'metodo_pago', 'estado_pago',
                 'direccion_envio',
                 'ciudad_envio',
                 'codigo_postal_envio',

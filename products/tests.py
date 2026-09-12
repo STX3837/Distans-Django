@@ -136,7 +136,8 @@ class PremiumCheckoutTests(TestCase):
 		self.assertEqual(line_item.vendedor, seller)
 
 	@patch('orders.views.get_stripe_session')
-	def test_premium_success_accepts_stripe_object_metadata(self, get_session):
+	@patch('orders.utils.stripe.Subscription.retrieve')
+	def test_premium_success_accepts_stripe_object_metadata(self, retrieve_subscription, get_session):
 		seller = User.objects.create_user(
 			email='vendedor-confirmacion@test.com',
 			password='Password123',
@@ -147,11 +148,19 @@ class PremiumCheckoutTests(TestCase):
 		store = Tienda.objects.create(nombre='Tienda confirmacion', vendedor=seller, plan=Tienda.Plan.FREEMIUM)
 		get_session.return_value = SimpleNamespace(
 			payment_status='paid',
+			subscription='sub_test',
 			metadata=stripe.StripeObject.construct_from({
 				'tipo': 'suscripcion_premium',
 				'tienda_id': str(store.pk),
 			}, None),
 		)
+		from django.utils import timezone
+		from datetime import timedelta
+		retrieve_subscription.return_value = {
+			'id': 'sub_test', 'status': 'active',
+			'metadata': {'tipo': 'suscripcion_premium', 'tienda_id': str(store.pk)},
+			'items': {'data': [{'current_period_end': int((timezone.now() + timedelta(days=31)).timestamp())}]},
+		}
 		self.client.force_login(seller)
 
 		response = self.client.get(reverse('premium_checkout_success'), {'session_id': 'cs_test'})

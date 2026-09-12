@@ -153,6 +153,10 @@
             <div class="info-box">
                 <strong>Método de pago</strong>
                 <div>{{ order.get_metodo_pago_display }}</div>
+                <div>{{ order.get_estado_pago_display }}</div>
+                {% if order.metodo_pago == 'contrarrembolso' %}
+                    <p>El repartidor de cada tienda cobra al entregar sus productos. DISTANS no registra ese cobro.</p>
+                {% endif %}
             </div>
             <div class="info-box">
                 <strong>Teléfono</strong>
@@ -192,7 +196,7 @@
             <tbody>
                 {% for item in order_items %}
                     <tr>
-                        <td>{{ item.nombre_producto|default:item.producto.nombre|default:'Producto eliminado' }}</td>
+                        <td>{% if item.nombre_producto %}{{ item.nombre_producto }}{% elif item.producto %}{{ item.producto.nombre }}{% else %}Producto eliminado{% endif %}</td>
                         <td>{{ item.cantidad }}</td>
                         <td>{{ item.precio_unitario }} €</td>
                         <td>{{ item.total }} €</td>

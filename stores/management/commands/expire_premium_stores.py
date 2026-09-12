@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.db.models import Q
 
 from stores.models import Tienda
 
@@ -11,8 +12,7 @@ class Command(BaseCommand):
         expired_stores = Tienda.objects.filter(
             plan=Tienda.Plan.PREMIUM,
             suscripcion_activa=True,
-            fecha_renovacion__lt=timezone.localdate(),
-        )
+        ).filter(Q(stripe_subscription_id__isnull=False, premium_hasta__lte=timezone.now()) | Q(stripe_subscription_id__isnull=True, fecha_renovacion__lt=timezone.localdate()))
         total = expired_stores.update(
             plan=Tienda.Plan.FREEMIUM,
             suscripcion_activa=False,

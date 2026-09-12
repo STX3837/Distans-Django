@@ -78,7 +78,7 @@ class CheckoutFlowTests(TestCase):
         self.assertEqual(snapshot['impuesto'], Decimal('33.60'))
         self.assertEqual(snapshot['total'], Decimal('193.60'))
 
-    def test_complete_checkout_creates_completed_order(self):
+    def test_cash_on_delivery_creates_order_without_claiming_payment(self):
         self._set_guest_cart()
 
         response = self.client.get(reverse('checkout_customer'))
@@ -115,7 +115,8 @@ class CheckoutFlowTests(TestCase):
         self.assertRedirects(response, reverse('checkout_complete'))
 
         pedido = Pedido.objects.get()
-        self.assertEqual(pedido.estado, 'completado')
+        self.assertEqual(pedido.estado, 'preparacion')
+        self.assertEqual(pedido.estado_pago, 'cobro_tienda')
         self.assertFalse(pedido.stock_reservado)
         self.assertEqual(pedido.total, Decimal('193.60'))
         self.assertEqual(pedido.items.count(), 1)
