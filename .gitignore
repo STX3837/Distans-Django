@@ -15,6 +15,10 @@ db.sqlite3
 .test-deps/
 .test-downloads/
 
+# Dependencias y archivos temporales de las pruebas locales
+/.test-deps/
+/.test-downloads/
+
 # Archivos estáticos y multimedia (opcional en desarrollo, vital en producción)
 /media/
 /static/
