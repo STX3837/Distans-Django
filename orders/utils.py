@@ -1,10 +1,13 @@
 from decimal import Decimal, ROUND_HALF_UP
+from datetime import datetime, timedelta, timezone as datetime_timezone
 
 import stripe
 from django.conf import settings
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils.crypto import get_random_string
+from django.utils import timezone
+from django.db.models import F
 
 from carts.models import Carrito
 from products.models import Producto
@@ -123,6 +126,8 @@ def _build_order_code():
 
 
 def create_order_from_checkout(*, user, buyer_data, address_data, payment_method, cart_snapshot):
+    if payment_method not in dict(Pedido.METODO_PAGO_CHOICES) or not cart_snapshot.get('items'):
+        raise ValueError('El carrito o el método de pago no es válido.')
     physical_only_items = cart_snapshot.get('physical_only_items') or [
         line for line in cart_snapshot.get('items', [])
         if not line['producto'].tienda or not line['producto'].tienda.permite_compra_online
@@ -139,7 +144,7 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
         product_ids = [line['producto'].pk for line in cart_snapshot['items']]
         product_map = {
             p.pk: p
-            for p in Producto.objects.select_for_update().filter(pk__in=product_ids)
+            for p in Producto.objects.select_for_update().filter(pk__in=product_ids).order_by('pk')
         }
 
         for line in cart_snapshot['items']:
@@ -148,6 +153,10 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
                 raise ValueError('Uno de los productos ya no existe.')
             if producto.stock < line['cantidad']:
                 raise ValueError(f"Stock insuficiente para {producto.nombre}.")
+            if line['cantidad'] <= 0 or not producto.disponible or not producto.tienda.permite_compra_online:
+                raise ValueError('Uno de los productos ya no está disponible para compra online.')
+            if _unit_price_for_product(producto) != line['precio_unitario']:
+                raise ValueError(f'El precio de {producto.nombre} ha cambiado. Revisa el carrito antes de confirmar.')
 
         pedido = Pedido.objects.create(
             codigo_pedido=_build_order_code(),
@@ -168,8 +177,11 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             direccion_facturacion=address_data['direccion_facturacion'],
             ciudad_facturacion=address_data['ciudad_facturacion'],
             codigo_postal_facturacion=address_data['codigo_postal_facturacion'],
-            estado='pendiente_pago',
-            stock_reservado=True,
+            estado='preparacion' if payment_method == 'contrarrembolso' else 'pendiente_pago',
+            estado_pago='cobro_tienda' if payment_method == 'contrarrembolso' else 'pendiente',
+            stock_reservado=payment_method == 'pasarela',
+            stock_descontado=True,
+            reserva_expira=timezone.now() + timedelta(minutes=35) if payment_method == 'pasarela' else None,
         )
 
         for line in cart_snapshot['items']:
@@ -180,6 +192,9 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             ProductoPedido.objects.create(
                 pedido=pedido,
                 producto=producto,
+                tienda=producto.tienda,
+                nombre_producto=producto.nombre,
+                nombre_tienda=producto.tienda.nombre if producto.tienda else '',
                 cantidad=line['cantidad'],
                 precio_unitario=line['precio_unitario'],
                 total=line['subtotal_neto'],
@@ -188,38 +203,62 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
     return pedido
 
 
-def process_secure_payment(pedido, payment_method):
-    reference = f'PAY-{pedido.codigo_pedido}-{payment_method[:3].upper()}'
-    return {
-        'success': True,
-        'reference': reference,
-        'message': 'La transacción se ha validado correctamente en un entorno seguro.',
-    }
-
-
 def release_order_stock_reservation(pedido):
-    if not pedido.stock_reservado:
-        return
-
     with transaction.atomic():
         pedido = Pedido.objects.select_for_update().prefetch_related('items__producto').get(pk=pedido.pk)
-        if not pedido.stock_reservado:
-            return
+        if not pedido.stock_reservado or pedido.estado_pago == 'pagado':
+            return False
+        return _cancel_locked_order(pedido)
 
-        for item in pedido.items.all():
-            producto = item.producto
-            producto.stock += item.cantidad
-            producto.save(update_fields=['stock', 'updated_at'])
 
-        pedido.stock_reservado = False
-        pedido.estado = 'cancelado'
-        pedido.save(update_fields=['stock_reservado', 'estado', 'updated_at'])
+def _cancel_locked_order(pedido):
+    if pedido.estado in {'cancelado', 'enviado', 'entregado'}:
+        return False
+    if pedido.stock_descontado or pedido.stock_reservado:
+        for item in pedido.items.order_by('producto_id'):
+            if item.producto_id:
+                Producto.objects.filter(pk=item.producto_id).update(stock=F('stock') + item.cantidad)
+    pedido.stock_descontado = False
+    pedido.stock_reservado = False
+    pedido.reserva_expira = None
+    pedido.estado = 'cancelado'
+    pedido.estado_pago = 'reembolso_pendiente' if pedido.estado_pago == 'pagado' else 'cancelado'
+    pedido.save()
+    return True
+
+
+def cancel_pending_payment(pedido):
+    """Close Stripe first so a live checkout cannot charge after releasing stock."""
+    with transaction.atomic():
+        locked = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if locked.estado != 'pendiente_pago' or not locked.stock_reservado:
+            return False
+        if locked.stripe_checkout_session_id:
+            session = get_stripe_session(locked.stripe_checkout_session_id)
+            if session.payment_status == 'paid':
+                mark_order_as_paid(locked)
+                return False
+            if session.status == 'open':
+                stripe.checkout.Session.expire(session.id)
+            elif session.status != 'expired':
+                return False  # An asynchronous payment may still be processing.
+        return _cancel_locked_order(locked)
 
 
 def mark_order_as_paid(pedido):
-    pedido.estado = 'completado'
-    pedido.stock_reservado = False
-    pedido.save(update_fields=['estado', 'stock_reservado', 'updated_at'])
+    with transaction.atomic():
+        locked = Pedido.objects.select_for_update().get(pk=pedido.pk)
+        if locked.estado_pago in {'pagado', 'reembolso_pendiente'}:
+            return
+        if locked.estado == 'cancelado':
+            locked.estado_pago = 'reembolso_pendiente'
+        else:
+            locked.estado_pago = 'pagado'
+            if locked.estado == 'pendiente_pago':
+                locked.estado = 'preparacion'
+        locked.stock_reservado = False
+        locked.reserva_expira = None
+        locked.save()
 
 
 def create_stripe_checkout_session(request, pedido):
@@ -230,6 +269,8 @@ def create_stripe_checkout_session(request, pedido):
 
     session = stripe.checkout.Session.create(
         mode='payment',
+        expires_at=int(pedido.reserva_expira.timestamp()),
+        idempotency_key=f'pedido-{pedido.pk}-checkout',
         success_url=request.build_absolute_uri('/checkout/pago/exito/') + '?session_id={CHECKOUT_SESSION_ID}',
         cancel_url=request.build_absolute_uri(f'/checkout/pago/cancelado/?pedido_id={pedido.pk}'),
         customer_email=pedido.comprador_email,
@@ -265,13 +306,22 @@ def get_stripe_session(session_id):
     return stripe.checkout.Session.retrieve(session_id)
 
 
+@transaction.atomic
 def create_premium_checkout_session(request, tienda):
     if not settings.STRIPE_SECRET_KEY:
         raise RuntimeError('Stripe no está configurado. Define STRIPE_SECRET_KEY en el entorno.')
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
-    return stripe.checkout.Session.create(
+    tienda = type(tienda).objects.select_for_update().get(pk=tienda.pk)
+    if tienda.stripe_premium_checkout_id:
+        existing = stripe.checkout.Session.retrieve(tienda.stripe_premium_checkout_id)
+        if existing.status == 'open':
+            return existing
+        if existing.status == 'complete':
+            raise RuntimeError('Ya has contratado Premium. Espera a que Stripe confirme la suscripción.')
+    session = stripe.checkout.Session.create(
         mode='subscription',
+        idempotency_key=f'premium-{tienda.pk}-{tienda.stripe_subscription_id or "new"}-{tienda.stripe_premium_checkout_id or "initial"}',
         success_url=request.build_absolute_uri('/checkout/premium/exito/') + '?session_id={CHECKOUT_SESSION_ID}',
         cancel_url=request.build_absolute_uri('/checkout/premium/cancelado/'),
         customer_email=tienda.vendedor.email,
@@ -279,6 +329,7 @@ def create_premium_checkout_session(request, tienda):
             'tipo': 'suscripcion_premium',
             'tienda_id': str(tienda.pk),
         },
+        subscription_data={'metadata': {'tipo': 'suscripcion_premium', 'tienda_id': str(tienda.pk)}},
         line_items=[
             {
                 'price_data': {
@@ -294,13 +345,33 @@ def create_premium_checkout_session(request, tienda):
             }
         ],
     )
+    tienda.stripe_premium_checkout_id = session.id
+    tienda.save(update_fields=['stripe_premium_checkout_id', 'updated_at'])
+    return session
 
 
-def activate_premium_store(tienda):
-    from datetime import date, timedelta
-
-    tienda.plan = tienda.Plan.PREMIUM
-    tienda.suscripcion_activa = True
-    tienda.pasarela_activa = True
-    tienda.fecha_renovacion = date.today() + timedelta(days=30)
-    tienda.save(update_fields=['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion', 'updated_at'])
+def activate_premium_store(tienda, subscription_id, *, allow_replace=False):
+    """Retrieve current Stripe state, rather than trusting event arrival order."""
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    with transaction.atomic():
+        tienda = type(tienda).objects.select_for_update().get(pk=tienda.pk)
+        subscription = stripe.Subscription.retrieve(subscription_id)
+        metadata = subscription.get('metadata', {})
+        if str(metadata.get('tienda_id')) != str(tienda.pk) or metadata.get('tipo') != 'suscripcion_premium':
+            raise ValueError('La suscripción no pertenece a esta tienda.')
+        if tienda.stripe_subscription_id and tienda.stripe_subscription_id != subscription_id and (not allow_replace or tienda.permite_compra_online):
+            raise ValueError('La tienda ya tiene otra suscripción activa.')
+        period_end = subscription.get('current_period_end')
+        if not period_end:
+            period_end = min((item.get('current_period_end', 0) for item in subscription.get('items', {}).get('data', [])), default=0)
+        premium_hasta = datetime.fromtimestamp(period_end, datetime_timezone.utc) if period_end else None
+        active = bool(subscription.get('status') == 'active' and premium_hasta and premium_hasta > timezone.now())
+        tienda.stripe_subscription_id = subscription_id
+        tienda.premium_hasta = premium_hasta
+        tienda.fecha_renovacion = timezone.localdate(premium_hasta) if premium_hasta else None
+        tienda.plan = tienda.Plan.PREMIUM if active else tienda.Plan.FREEMIUM
+        tienda.suscripcion_activa = active
+        tienda.pasarela_activa = active
+        if subscription.get('status') in {'canceled', 'unpaid', 'incomplete_expired'}:
+            tienda.stripe_premium_checkout_id = ''
+        tienda.save()

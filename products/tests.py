@@ -12,6 +12,65 @@ from users.models import User
 from .models import Producto, VisitaProducto
 
 
+class CartEdgeCaseTests(TestCase):
+	def setUp(self):
+		self.seller = User.objects.create_user(
+			email='vendedor-carrito@test.com',
+			password='Password123',
+			nombre='Vendedor',
+			apellidos='Carrito',
+			rol=User.Role.SELLER,
+		)
+		self.store = Tienda.objects.create(nombre='Tienda carrito', vendedor=self.seller)
+
+	def _enable_guest_session(self):
+		session = self.client.session
+		session['guest'] = True
+		session.save()
+
+	def test_stock_zero_removes_item_instead_of_creating_quantity_one(self):
+		product = Producto.objects.create(
+			nombre='Producto agotado',
+			descripcion='Producto de prueba',
+			precio=Decimal('10.00'),
+			marca='Marca',
+			categoria='hogar_bricolaje',
+			stock=0,
+			tienda=self.store,
+		)
+		session = self.client.session
+		session['guest'] = True
+		session['cart'] = {str(product.pk): {'id': product.pk, 'cantidad': 1}}
+		session.save()
+
+		response = self.client.post(
+			reverse('update_cart_item', kwargs={'product_pk': product.pk}),
+			{'cantidad': 1},
+		)
+
+		self.assertRedirects(response, reverse('cart_view'))
+		self.assertNotIn(str(product.pk), self.client.session.get('cart', {}))
+
+	def test_seller_can_delete_product_without_image(self):
+		product = Producto.objects.create(
+			nombre='Producto sin imagen',
+			descripcion='Producto de prueba',
+			precio=Decimal('10.00'),
+			marca='Marca',
+			categoria='hogar_bricolaje',
+			stock=2,
+			tienda=self.store,
+		)
+		self.client.force_login(self.seller)
+
+		response = self.client.post(
+			reverse('product_delete', kwargs={'store_pk': self.store.pk, 'pk': product.pk}),
+		)
+
+		self.assertRedirects(response, reverse('store_detail', kwargs={'pk': self.store.pk}))
+		self.assertFalse(Producto.objects.filter(pk=product.pk).exists())
+
+
 class SellerMetricsTests(TestCase):
 	def setUp(self):
 		self.seller = User.objects.create_user(
@@ -77,7 +136,8 @@ class PremiumCheckoutTests(TestCase):
 		self.assertEqual(line_item.vendedor, seller)
 
 	@patch('orders.views.get_stripe_session')
-	def test_premium_success_accepts_stripe_object_metadata(self, get_session):
+	@patch('orders.utils.stripe.Subscription.retrieve')
+	def test_premium_success_accepts_stripe_object_metadata(self, retrieve_subscription, get_session):
 		seller = User.objects.create_user(
 			email='vendedor-confirmacion@test.com',
 			password='Password123',
@@ -88,11 +148,19 @@ class PremiumCheckoutTests(TestCase):
 		store = Tienda.objects.create(nombre='Tienda confirmacion', vendedor=seller, plan=Tienda.Plan.FREEMIUM)
 		get_session.return_value = SimpleNamespace(
 			payment_status='paid',
+			subscription='sub_test',
 			metadata=stripe.StripeObject.construct_from({
 				'tipo': 'suscripcion_premium',
 				'tienda_id': str(store.pk),
 			}, None),
 		)
+		from django.utils import timezone
+		from datetime import timedelta
+		retrieve_subscription.return_value = {
+			'id': 'sub_test', 'status': 'active',
+			'metadata': {'tipo': 'suscripcion_premium', 'tienda_id': str(store.pk)},
+			'items': {'data': [{'current_period_end': int((timezone.now() + timedelta(days=31)).timestamp())}]},
+		}
 		self.client.force_login(seller)
 
 		response = self.client.get(reverse('premium_checkout_success'), {'session_id': 'cs_test'})

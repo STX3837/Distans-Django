@@ -1,7 +1,9 @@
 from decimal import Decimal
+from datetime import date, timedelta
 
 from django.test import TestCase
 from django.urls import reverse
+from django.core.management import call_command
 
 from users.models import User
 from .models import Tienda
@@ -63,3 +65,42 @@ class StoreMapViewTests(TestCase):
         self.assertNotContains(response, far_store.nombre)
         self.assertContains(response, 'L.circle')
         self.assertContains(response, 'storePopup')
+
+    def test_admin_can_delete_store_without_image(self):
+        admin = User.objects.create_user(
+            email='admin@test.com',
+            password='Password123',
+            nombre='Admin',
+            apellidos='Prueba',
+            rol=User.Role.ADMIN,
+        )
+        store = Tienda.objects.create(nombre='Tienda sin imagen', vendedor=self.seller)
+        self.client.force_login(admin)
+
+        response = self.client.post(reverse('store_delete_admin', kwargs={'pk': store.pk}))
+
+        self.assertRedirects(response, reverse('store_list_admin'))
+        self.assertFalse(Tienda.objects.filter(pk=store.pk).exists())
+
+    def test_expired_premium_store_cannot_sell_online(self):
+        store = Tienda.objects.create(
+            nombre='Tienda Premium caducada',
+            vendedor=self.seller,
+            fecha_renovacion=date.today() - timedelta(days=1),
+        )
+
+        self.assertFalse(store.permite_compra_online)
+
+    def test_expire_premium_stores_command_deactivates_expired_store(self):
+        store = Tienda.objects.create(
+            nombre='Tienda a caducar',
+            vendedor=self.seller,
+            fecha_renovacion=date.today() - timedelta(days=1),
+        )
+
+        call_command('expire_premium_stores')
+
+        store.refresh_from_db()
+        self.assertEqual(store.plan, Tienda.Plan.FREEMIUM)
+        self.assertFalse(store.suscripcion_activa)
+        self.assertFalse(store.pasarela_activa)

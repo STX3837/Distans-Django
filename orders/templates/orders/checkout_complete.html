@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Pedido completado - DISTANS{% endblock %}
+{% block title %}Pedido confirmado - DISTANS{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -63,7 +63,11 @@
 <div class="complete-shell">
     <section class="complete-card">
         <h1>Pedido confirmado</h1>
-        <p>La compra se ha cerrado correctamente y el pago se ha validado con éxito en un entorno seguro.</p>
+        {% if order.metodo_pago == 'contrarrembolso' %}
+            <p>Pagarás en persona al repartidor de cada tienda cuando entregue sus productos. Cada tienda gestiona el cobro de forma independiente.</p>
+        {% else %}
+            <p>Consulta el estado del pedido y de su pago a continuación.</p>
+        {% endif %}
 
         {% if order %}
             <div class="complete-grid">
@@ -78,6 +82,7 @@
                 <div class="complete-tile">
                     <strong>Método de pago</strong>
                     <div>{{ order.get_metodo_pago_display }}</div>
+                    <div>{{ order.get_estado_pago_display }}</div>
                 </div>
                 <div class="complete-tile">
                     <strong>Estado</strong>

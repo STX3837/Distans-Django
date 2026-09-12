@@ -12,6 +12,7 @@ from functools import wraps
 from .models import Tienda, VisitaTienda
 from .forms import TiendaForm
 from .utils import filter_stores_by_geo, get_catalog_mode, get_geo_search_state, set_catalog_mode as save_catalog_mode
+from .utils import online_store_filter
 from users.models import User
 from products.models import Producto
 
@@ -77,7 +78,7 @@ def _filtered_stores(request):
 		)
 	)
 	if get_catalog_mode(request) == 'online':
-		tiendas = tiendas.filter(plan=Tienda.Plan.PREMIUM, suscripcion_activa=True, pasarela_activa=True)
+		tiendas = tiendas.filter(online_store_filter())
 	categoria = request.GET.get('categoria', '').strip()
 	popularidad_min = _parse_decimal(request.GET.get('popularidad_min'))
 	if categoria:
@@ -236,4 +237,3 @@ def store_delete_admin(request, pk):
 		return redirect('store_list_admin')
 
 	return render(request, 'stores/store_confirm_delete.html', {'store': tienda})
-

@@ -2,6 +2,8 @@ from django.contrib import messages
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -26,7 +28,8 @@ from .utils import (
 	activate_premium_store,
 	get_stripe_session,
 	mark_order_as_paid,
-	process_secure_payment,
+	cancel_pending_payment,
+	_cancel_locked_order,
 	release_order_stock_reservation,
 )
 
@@ -90,7 +93,7 @@ def _vendor_orders_for_user(user):
 	store = getattr(user, 'tienda', None)
 	if store is None:
 		return orders.none()
-	return orders.filter(items__producto__tienda=store).distinct()
+	return orders.filter(Q(items__tienda=store) | Q(items__tienda__isnull=True, items__producto__tienda=store)).distinct()
 
 
 def _vendor_order_visible_to_user(user, pedido):
@@ -101,7 +104,7 @@ def _vendor_order_visible_to_user(user, pedido):
 	store = getattr(user, 'tienda', None)
 	if store is None:
 		return False
-	return pedido.items.filter(producto__tienda=store).exists()
+	return pedido.items.filter(Q(tienda=store) | Q(tienda__isnull=True, producto__tienda=store)).exists()
 
 
 def _vendor_order_items(pedido, user):
@@ -110,7 +113,7 @@ def _vendor_order_items(pedido, user):
 	store = getattr(user, 'tienda', None)
 	if store is None:
 		return pedido.items.none()
-	return pedido.items.select_related('producto', 'producto__tienda').filter(producto__tienda=store)
+	return pedido.items.select_related('producto', 'producto__tienda').filter(Q(tienda=store) | Q(tienda__isnull=True, producto__tienda=store))
 
 
 @buyer_or_guest_required
@@ -195,7 +198,14 @@ def checkout_payment(request):
 		if previous_order_id:
 			previous_order = Pedido.objects.filter(pk=previous_order_id, estado='pendiente_pago').first()
 			if previous_order:
-				release_order_stock_reservation(previous_order)
+				try:
+					cancelled = cancel_pending_payment(previous_order)
+				except (RuntimeError, stripe.error.StripeError):
+					messages.error(request, 'No se ha podido cerrar el pago anterior. Inténtalo de nuevo.')
+					return redirect('checkout_payment')
+				if not cancelled:
+					messages.warning(request, 'El pago anterior ya está confirmado o sigue procesándose. Consulta tus pedidos.')
+					return redirect('order_history')
 
 		try:
 			pedido = create_order_from_checkout(
@@ -205,13 +215,15 @@ def checkout_payment(request):
 				payment_method=form.cleaned_data['metodo_pago'],
 				cart_snapshot=cart_snapshot,
 			)
-		except ValueError as exc:
+		except (ValueError, ValidationError) as exc:
 			messages.error(request, str(exc))
 			return redirect('cart_view')
 
 		if form.cleaned_data['metodo_pago'] == 'pasarela':
 			request.session['checkout_order_id'] = pedido.pk
 			request.session.modified = True
+			if request.session.get('guest'):
+				_remember_guest_order_code(request, pedido.codigo_pedido)
 			try:
 				session = create_stripe_checkout_session(request, pedido)
 			except RuntimeError as exc:
@@ -219,14 +231,11 @@ def checkout_payment(request):
 				messages.error(request, str(exc))
 				return redirect('checkout_payment')
 			except stripe.error.StripeError:
-				release_order_stock_reservation(pedido)
-				messages.error(request, 'No se ha podido iniciar el pago con Stripe. Inténtalo de nuevo.')
+				messages.error(request, 'No se ha podido confirmar el inicio del pago con Stripe. La reserva se conserva hasta comprobar su estado o su caducidad.')
 				return redirect('checkout_payment')
 			return redirect(session.url)
 
-		payment_result = process_secure_payment(pedido, form.cleaned_data['metodo_pago'])
-		if payment_result['success']:
-			mark_order_as_paid(pedido)
+		if form.cleaned_data['metodo_pago'] == 'contrarrembolso':
 			request.session.pop('cart', None)
 			if request.user.is_authenticated:
 				carrito = request.user.carrito if hasattr(request.user, 'carrito') else None
@@ -236,7 +245,7 @@ def checkout_payment(request):
 			request.session['last_order_code'] = pedido.codigo_pedido
 			if request.session.get('guest') == True:
 				_remember_guest_order_code(request, pedido.codigo_pedido)
-			messages.success(request, 'Pago confirmado. Tu pedido se ha completado con éxito en un entorno seguro.')
+			messages.success(request, 'Pedido confirmado. Pagarás en persona al repartidor de cada tienda cuando recibas sus productos.')
 			return redirect('checkout_complete')
 
 		release_order_stock_reservation(pedido)
@@ -248,10 +257,10 @@ def checkout_payment(request):
 		{
 			'step_title': 'Pago',
 			'step_description': 'Elige contra reembolso o pasarela de pago segura. Este es el último paso de la compra.',
-			'security_note': 'La pasarela está simulada con una función siempre exitosa para mantener un flujo estable y seguro.',
+			'security_note': 'El pago online se realiza mediante Stripe. El contrarrembolso lo cobra el repartidor de cada tienda al entregar sus productos.',
 			'form': form,
 			'summary': cart_snapshot,
-			'next_label': 'Confirmar pago',
+			'next_label': 'Confirmar pedido',
 			'step_index': 3,
 			'step_total': 3,
 		},
@@ -306,6 +315,8 @@ def checkout_payment_success(request):
 		messages.error(request, 'No se ha encontrado el pedido asociado al pago.')
 		return redirect('checkout_payment')
 
+	if not (_order_visible_to_request(request, pedido) or not request.user.is_authenticated and request.session.get('checkout_order_id') == pedido.pk):
+		raise Http404
 	mark_order_as_paid(pedido)
 	request.session.pop('cart', None)
 	if request.user.is_authenticated:
@@ -314,7 +325,7 @@ def checkout_payment_success(request):
 			carrito.items.all().delete()
 	_clear_checkout_session(request)
 	request.session['last_order_code'] = pedido.codigo_pedido
-	messages.success(request, 'Pago confirmado por Stripe. Tu pedido se ha completado correctamente.')
+	messages.success(request, 'Pago confirmado por Stripe. Puedes consultar el estado de tu pedido.')
 	return redirect('checkout_complete')
 
 
@@ -323,8 +334,23 @@ def checkout_payment_cancel(request):
 	pedido_id = request.GET.get('pedido_id') or request.session.get('checkout_order_id')
 	if pedido_id:
 		pedido = Pedido.objects.filter(pk=pedido_id).first()
-		if pedido:
-			release_order_stock_reservation(pedido)
+		can_cancel = bool(
+			pedido
+			and pedido.estado == 'pendiente_pago'
+			and (
+				request.user.is_authenticated and pedido.usuario_id == request.user.pk
+				or not request.user.is_authenticated and request.session.get('checkout_order_id') == pedido.pk
+			)
+		)
+		if can_cancel:
+			try:
+				cancelled = cancel_pending_payment(pedido)
+			except (RuntimeError, stripe.error.StripeError):
+				messages.error(request, 'No se ha podido cerrar el pago. La reserva se conserva hasta comprobar su estado.')
+				return redirect('order_history')
+			if not cancelled:
+				messages.info(request, 'El pago está confirmado o procesándose; la reserva se conserva.')
+				return redirect('order_history')
 
 	messages.warning(request, 'Has cancelado el pago. La reserva de stock se ha liberado.')
 	return redirect('checkout_payment')
@@ -353,17 +379,41 @@ def stripe_webhook(request):
 		return HttpResponse(status=200)
 
 	metadata = data_object.get('metadata', {})
-	if metadata.get('tipo') == 'suscripcion_premium':
-		tienda = Tienda.objects.filter(pk=metadata.get('tienda_id')).first()
-		if event_type == 'checkout.session.completed' and tienda:
-			activate_premium_store(tienda)
+	subscription_id = None
+	if event_type.startswith('customer.subscription.'):
+		subscription_id = session_id
+	elif event_type in {'invoice.paid', 'invoice.payment_failed'}:
+		subscription_id = data_object.get('subscription') or data_object.get('parent', {}).get('subscription_details', {}).get('subscription')
+	elif metadata.get('tipo') == 'suscripcion_premium':
+		subscription_id = data_object.get('subscription')
+	if subscription_id:
+		tienda = Tienda.objects.filter(stripe_subscription_id=subscription_id).first()
+		if not tienda and metadata.get('tipo') == 'suscripcion_premium':
+			tienda = Tienda.objects.filter(pk=metadata.get('tienda_id')).first()
+		if not tienda and event_type in {'invoice.paid', 'invoice.payment_failed'}:
+			try:
+				subscription = stripe.Subscription.retrieve(subscription_id)
+				subscription_metadata = subscription.get('metadata', {})
+				if subscription_metadata.get('tipo') == 'suscripcion_premium':
+					tienda = Tienda.objects.filter(pk=subscription_metadata.get('tienda_id')).first()
+			except stripe.error.StripeError:
+				return HttpResponse(status=503)
+		if tienda:
+			if tienda.stripe_subscription_id and tienda.stripe_subscription_id != subscription_id and not (event_type == 'checkout.session.completed' and tienda.stripe_premium_checkout_id == session_id):
+				return HttpResponse(status=200)
+			try:
+				activate_premium_store(tienda, subscription_id, allow_replace=event_type == 'checkout.session.completed')
+			except stripe.error.StripeError:
+				return HttpResponse(status=503)
+			except ValueError:
+				return HttpResponse(status=400)
 		return HttpResponse(status=200)
 
 	pedido = Pedido.objects.filter(stripe_checkout_session_id=session_id).first()
 	if not pedido:
 		return HttpResponse(status=200)
 
-	if event_type == 'checkout.session.completed':
+	if event_type in {'checkout.session.completed', 'checkout.session.async_payment_succeeded'} and data_object.get('payment_status') == 'paid':
 		mark_order_as_paid(pedido)
 	elif event_type in {'checkout.session.expired', 'checkout.session.async_payment_failed'}:
 		release_order_stock_reservation(pedido)
@@ -377,7 +427,7 @@ def premium_checkout(request):
 		return redirect('account_detail')
 
 	tienda = getattr(request.user, 'tienda', None)
-	if tienda is None or tienda.plan == Tienda.Plan.PREMIUM:
+	if tienda is None or tienda.permite_compra_online:
 		return redirect('seller_home')
 
 	try:
@@ -411,8 +461,12 @@ def premium_checkout_success(request):
 		messages.error(request, 'El pago de Premium no está confirmado.')
 		return redirect('seller_home')
 
-	activate_premium_store(tienda)
-	messages.success(request, 'Tu suscripción Premium está activa durante 1 mes.')
+	try:
+		activate_premium_store(tienda, getattr(stripe_session, 'subscription', None), allow_replace=True)
+	except (ValueError, stripe.error.StripeError):
+		messages.error(request, 'No se ha podido sincronizar tu suscripción Premium.')
+		return redirect('seller_home')
+	messages.success(request, 'La suscripción Premium se ha sincronizado con Stripe.')
 	return redirect('seller_home')
 
 
@@ -496,7 +550,7 @@ def vendor_order_list(request):
 
 	orders = _vendor_orders_for_user(request.user)
 	if selected_store is not None:
-		orders = orders.filter(items__producto__tienda=selected_store).distinct()
+		orders = orders.filter(Q(items__tienda=selected_store) | Q(items__tienda__isnull=True, items__producto__tienda=selected_store)).distinct()
 
 	search_code = (request.GET.get('codigo_pedido') or '').strip().upper()
 	user_filter = (request.GET.get('usuario') or '').strip()
@@ -510,7 +564,7 @@ def vendor_order_list(request):
 		buyers = User.objects.filter(pedidos__isnull=False).order_by('email').distinct()
 	else:
 		store = selected_store or getattr(request.user, 'tienda', None)
-		buyers = User.objects.filter(pedidos__items__producto__tienda=store).order_by('email').distinct() if store else User.objects.none()
+		buyers = User.objects.filter(Q(pedidos__items__tienda=store) | Q(pedidos__items__tienda__isnull=True, pedidos__items__producto__tienda=store)).order_by('email').distinct() if store else User.objects.none()
 
 	return render(
 		request,
@@ -541,13 +595,29 @@ def vendor_order_detail(request, codigo_pedido):
 	if selected_store is None and getattr(request.user, 'tienda', None):
 		selected_store = request.user.tienda
 	if selected_store is not None and not (request.user.is_staff or request.user.rol == User.Role.ADMIN):
-		if not pedido.items.filter(producto__tienda=selected_store).exists():
+		if not pedido.items.filter(Q(tienda=selected_store) | Q(tienda__isnull=True, producto__tienda=selected_store)).exists():
 			raise Http404
 
 	if request.method == 'POST':
-		form = PedidoEstadoForm(request.POST, instance=pedido)
-		if form.is_valid():
-			form.save()
+		with transaction.atomic():
+			pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+			form = PedidoEstadoForm(request.POST, instance=pedido)
+			valid = form.is_valid()
+			if valid:
+				target_state = form.cleaned_data['estado']
+				# ModelForm validation updates the instance; reload the persisted state.
+				pedido.refresh_from_db()
+				if target_state == 'cancelado':
+					try:
+						valid = cancel_pending_payment(pedido) if pedido.estado == 'pendiente_pago' else _cancel_locked_order(pedido)
+					except (RuntimeError, stripe.error.StripeError):
+						valid = False
+					if not valid:
+						form.add_error('estado', 'No se puede cancelar un pago confirmado o en proceso sin comprobarlo.')
+				else:
+					pedido.estado = target_state
+					pedido.save(update_fields=['estado', 'updated_at'])
+		if valid:
 			messages.success(request, 'El estado del pedido se ha actualizado correctamente.')
 			redirect_target = f"{reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido})}?tienda={selected_store.pk}" if selected_store else reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido})
 			return redirect(redirect_target)

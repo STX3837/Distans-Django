@@ -19,6 +19,7 @@ from .forms import ProductoForm, ProductoStockForm
 from .models import Producto, VisitaProducto
 from stores.models import Tienda, VisitaTienda
 from stores.utils import filter_products_by_geo, get_catalog_mode, get_geo_search_state, store_is_within_radius
+from stores.utils import online_store_filter
 
 
 def _ensure_session_key(request):
@@ -368,6 +369,9 @@ def product_delete(request, store_pk, pk):
 def product_detail(request, pk):
 	"""Detalle del producto - accesible para registrados y no registrados"""
 	producto = get_object_or_404(Producto.objects.select_related('tienda'), pk=pk)
+	if producto.tienda is None:
+		messages.warning(request, 'Este producto no está asociado a una tienda.')
+		return redirect('catalog')
 	_record_product_visit(request, producto)
 	
 	return render(
@@ -384,6 +388,9 @@ def product_detail(request, pk):
 def add_to_cart(request, product_pk):
 	"""Agregar producto al carrito"""
 	producto = get_object_or_404(Producto, pk=product_pk)
+	if producto.tienda is None:
+		messages.warning(request, 'Este producto no está asociado a una tienda.')
+		return redirect('catalog')
 	if producto.tienda and not producto.tienda.permite_compra_online:
 		messages.warning(request, 'Este producto solo está disponible para compra en la tienda física.')
 		return redirect('product_detail', pk=producto.pk)
@@ -391,6 +398,7 @@ def add_to_cart(request, product_pk):
 	
 	if cantidad < 1:
 		cantidad = 1
+	cantidad = min(cantidad, producto.stock)
 
 	if not _is_product_orderable(producto):
 		messages.error(request, 'Este producto no está disponible para compra en este momento.')
@@ -453,7 +461,9 @@ def update_cart_item(request, product_pk):
 	if nueva_cantidad <= 0:
 		return remove_cart_item(request, product_pk)
 
-	nueva_cantidad = min(nueva_cantidad, max(producto.stock, 1))
+	nueva_cantidad = min(nueva_cantidad, producto.stock)
+	if nueva_cantidad <= 0:
+		return remove_cart_item(request, product_pk)
 
 	if request.user.is_authenticated:
 		carrito = _get_or_create_cart(request)
@@ -563,6 +573,9 @@ def store_update(request, pk):
 	if request.method == 'POST':
 		from stores.forms import TiendaForm
 		form = TiendaForm(request.POST, request.FILES, instance=tienda)
+		if not request.user.is_staff:
+			for field in ['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion']:
+				form.fields.pop(field, None)
 		if form.is_valid():
 			form.save()
 			messages.success(request, 'La tienda se ha actualizado correctamente.')
@@ -570,6 +583,9 @@ def store_update(request, pk):
 	else:
 		from stores.forms import TiendaForm
 		form = TiendaForm(instance=tienda)
+		if not request.user.is_staff:
+			for field in ['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion']:
+				form.fields.pop(field, None)
 
 	return render(
 		request,
@@ -618,11 +634,7 @@ def _filtered_products(request, tienda=None):
 	if tienda is not None:
 		productos = productos.filter(tienda=tienda)
 	if get_catalog_mode(request) == 'online':
-		productos = productos.filter(
-			tienda__plan=Tienda.Plan.PREMIUM,
-			tienda__suscripcion_activa=True,
-			tienda__pasarela_activa=True,
-		)
+		productos = productos.filter(online_store_filter('tienda__'))
 	productos = _rating_annotations(productos, 'visitas', 'productopedido__pedido')
 
 	categoria = request.GET.get('categoria', '').strip()

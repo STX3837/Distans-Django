@@ -2,7 +2,7 @@
 
 <header class="header">
     <div class="header-container">
-        <a href="/" class="header-logo">
+        <a href="{% if user.is_authenticated %}{% url 'post_login_redirect' %}{% elif request.session.guest %}{% url 'catalog' %}{% else %}{% url 'login' %}{% endif %}" class="header-logo">
             <span class="logo-icon">🌍</span>
             <span class="logo-text">DISTANS</span>
         </a>
@@ -644,9 +644,10 @@
             }
 
             const map = L.map(mapId).setView([startLat, startLng], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors',
+                referrerPolicy: 'strict-origin-when-cross-origin',
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             }).addTo(map);
 
             picker._leafletMap = map;

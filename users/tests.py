@@ -102,6 +102,68 @@ class RootUrlTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('store_list_admin'), fetch_redirect_response=False)
 
+    def test_buyer_login_redirects_to_catalog(self):
+        buyer = User.objects.create_user(
+            email='buyer-home@example.com',
+            password='secret123',
+            nombre='Comprador',
+            apellidos='Prueba',
+        )
+        self.client.force_login(buyer)
+
+        response = self.client.get(reverse('post_login_redirect'))
+
+        self.assertRedirects(response, reverse('catalog'), fetch_redirect_response=False)
+
+    def test_seller_login_redirects_to_seller_home(self):
+        seller = User.objects.create_user(
+            email='seller-home@example.com',
+            password='secret123',
+            nombre='Vendedor',
+            apellidos='Prueba',
+            rol=User.Role.SELLER,
+        )
+        self.client.force_login(seller)
+
+        response = self.client.get(reverse('post_login_redirect'))
+
+        self.assertRedirects(response, reverse('seller_home'), fetch_redirect_response=False)
+
+    def test_header_logo_uses_role_home_for_authenticated_user(self):
+        buyer = User.objects.create_user(
+            email='buyer-logo@example.com',
+            password='secret123',
+            nombre='Comprador',
+            apellidos='Logo',
+        )
+        self.client.force_login(buyer)
+
+        response = self.client.get(reverse('catalog'))
+
+        self.assertContains(response, f'href="{reverse("post_login_redirect")}"', html=False)
+
+    def test_login_hides_guest_option_for_existing_guest_session(self):
+        session = self.client.session
+        session['guest'] = True
+        session['cart'] = {'1': {'id': 1, 'cantidad': 1}}
+        session.save()
+
+        response = self.client.get(reverse('login'))
+
+        self.assertNotContains(response, 'Entrar como invitado')
+
+    def test_guest_login_preserves_existing_guest_session(self):
+        session = self.client.session
+        session['guest'] = True
+        session['cart'] = {'1': {'id': 1, 'cantidad': 1}}
+        session.save()
+
+        response = self.client.get(reverse('guest_login'))
+
+        self.assertRedirects(response, reverse('catalog'), fetch_redirect_response=False)
+        self.assertTrue(self.client.session.get('guest'))
+        self.assertEqual(self.client.session.get('cart')['1']['cantidad'], 1)
+
 
 class FavoriteViewTests(TestCase):
     def setUp(self):

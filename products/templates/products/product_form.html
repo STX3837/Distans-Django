@@ -181,7 +181,7 @@
 
                 <div class="form-actions">
                     {% if product %}
-                        <button type="submit" formaction="{% url 'product_delete' store.pk product.pk %}" class="btn btn-danger">Eliminar</button>
+                        <button type="submit" formaction="{% url 'product_delete' store.pk product.pk %}" formnovalidate class="btn btn-danger">Eliminar</button>
                     {% endif %}
                     <a class="btn btn-secondary" href="{% url 'store_detail' store.pk %}">Cancelar</a>
                     <button type="submit">{{ submit_label }}</button>
