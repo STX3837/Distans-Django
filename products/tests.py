@@ -51,6 +51,35 @@ class CartEdgeCaseTests(TestCase):
 		self.assertRedirects(response, reverse('cart_view'))
 		self.assertNotIn(str(product.pk), self.client.session.get('cart', {}))
 
+	def test_guest_cart_links_product_and_store_details(self):
+		product = Producto.objects.create(
+			nombre='Producto enlazado',
+			descripcion='Producto de prueba',
+			precio=Decimal('10.00'),
+			marca='Marca',
+			categoria='hogar_bricolaje',
+			stock=2,
+			tienda=self.store,
+		)
+		session = self.client.session
+		session['guest'] = True
+		session['cart'] = {
+			str(product.pk): {
+				'id': product.pk,
+				'nombre': product.nombre,
+				'precio': '10.00',
+				'cantidad': 1,
+				'tienda_id': self.store.pk,
+				'tienda_nombre': self.store.nombre,
+			}
+		}
+		session.save()
+
+		response = self.client.get(reverse('cart_view'))
+
+		self.assertContains(response, reverse('product_detail', kwargs={'pk': product.pk}))
+		self.assertContains(response, reverse('store_products', kwargs={'pk': self.store.pk}))
+
 	def test_seller_can_delete_product_without_image(self):
 		product = Producto.objects.create(
 			nombre='Producto sin imagen',

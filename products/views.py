@@ -514,7 +514,7 @@ def cart_view(request):
 
 	if request.user.is_authenticated:
 		carrito = _get_or_create_cart(request)
-		items = carrito.items.select_related('producto').all()
+		items = carrito.items.select_related('producto__tienda').all()
 		has_items = items.exists()
 	else:
 		carrito = _get_or_create_cart(request)
@@ -536,6 +536,7 @@ def cart_view(request):
 					{
 						'id': item.get('id'),
 						'nombre': item.get('nombre', ''),
+						'tienda_id': item.get('tienda_id'),
 						'tienda_nombre': item.get('tienda_nombre', ''),
 						'imagen': item.get('imagen', ''),
 						'cantidad': qty,

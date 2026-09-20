@@ -62,6 +62,7 @@
     }
 
     .item-image {
+        display: block;
         width: 100px;
         height: 100px;
         background: #f5f5f5;
@@ -85,6 +86,18 @@
         font-weight: bold;
         color: #333;
         font-size: 16px;
+    }
+
+    .item-name a,
+    .item-store a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .item-name a:hover,
+    .item-store a:hover {
+        color: #287a3d;
+        text-decoration: underline;
     }
 
     .item-store {
@@ -277,14 +290,14 @@
                 {% if user.is_authenticated %}
                     {% for item in items %}
                         <div class="cart-item">
-                            <div class="item-image">
+                            <a class="item-image" href="{% url 'product_detail' item.producto.pk %}" aria-label="Ver {{ item.producto.nombre }}">
                                 {% if item.producto.imagen %}
                                     <img src="{{ item.producto.imagen.url }}" alt="{{ item.producto.nombre }}">
                                 {% endif %}
-                            </div>
+                            </a>
                             <div class="item-info">
-                                <div class="item-name">{{ item.producto.nombre }}</div>
-                                <div class="item-store">{{ item.producto.tienda.nombre }}</div>
+                                <div class="item-name"><a href="{% url 'product_detail' item.producto.pk %}">{{ item.producto.nombre }}</a></div>
+                                <div class="item-store"><a href="{% url 'store_products' item.producto.tienda.pk %}">{{ item.producto.tienda.nombre }}</a></div>
                                 <div class="item-price">
                                     {% if item.producto.tiene_oferta %}
                                         <span style="text-decoration: line-through; color: #999;">{{ item.producto.precio }} €</span>
@@ -313,14 +326,20 @@
                 {% else %}
                     {% for item in session_items %}
                         <div class="cart-item">
-                            <div class="item-image">
+                            <a class="item-image" href="{% url 'product_detail' item.id %}" aria-label="Ver {{ item.nombre }}">
                                 {% if item.imagen %}
                                     <img src="{{ item.imagen }}" alt="{{ item.nombre }}">
                                 {% endif %}
-                            </div>
+                            </a>
                             <div class="item-info">
-                                <div class="item-name">{{ item.nombre }}</div>
-                                <div class="item-store">{{ item.tienda_nombre }}</div>
+                                <div class="item-name"><a href="{% url 'product_detail' item.id %}">{{ item.nombre }}</a></div>
+                                <div class="item-store">
+                                    {% if item.tienda_id %}
+                                        <a href="{% url 'store_products' item.tienda_id %}">{{ item.tienda_nombre }}</a>
+                                    {% else %}
+                                        {{ item.tienda_nombre }}
+                                    {% endif %}
+                                </div>
                                 <div class="item-price">
                                     {% if item.en_oferta and item.precio_oferta %}
                                         <span style="text-decoration: line-through; color: #999;">{{ item.precio }} €</span>
