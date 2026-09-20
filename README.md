@@ -9,6 +9,7 @@ online en tiendas con Premium activo. Django genera las páginas HTML en el serv
 
 - [Funcionalidades y roles](#funcionalidades-y-roles)
 - [Datos de demostración](#datos-de-demostración)
+- [Restablecer la contraseña](#restablecer-la-contraseña)
 - [Requisitos del entorno](#requisitos-del-entorno)
 - [Instalación](#instalacion)
 - [Pedidos, pagos y stock](#pedidos-pagos-y-stock)
@@ -63,6 +64,7 @@ Todas las rutas se sirven desde `http://localhost:8000` en el entorno local.
 | --- | --- |
 | `/` | Redirección al inicio de sesión. |
 | `/accounts/login/`, `/accounts/signup/` | Identificación y registro. |
+| `/accounts/password-reset/` | Solicitud de restablecimiento de contraseña. |
 | `/productos/`, `/productos/<id>/` | Catálogo y detalle del producto. |
 | `/tiendas/`, `/tiendas/mapa/` | Listado y mapa de tiendas. |
 | `/tiendas/<id>/productos/` | Productos de una tienda. |
@@ -116,6 +118,25 @@ son ficticios. Los pedidos online pagados son ejemplos locales: el comando no ll
 Stripe ni cobra dinero. Premium se habilita localmente para la demo sin suscripciones
 de Stripe. Puedes probar una compra completa con contrarrembolso sin configurar Stripe;
 para probar pagos reales de prueba y suscripciones utiliza las claves de test de Stripe.
+
+## Restablecer la contraseña
+
+Desde el inicio de sesión, pulsa **He olvidado mi contraseña**, introduce el correo de
+una cuenta activa y envía la solicitud. En el entorno Docker de desarrollo, los correos
+no se envían a una dirección real: Mailpit los captura de forma local. Abre
+`http://localhost:8025`, selecciona el mensaje recibido y utiliza su enlace para elegir
+una contraseña nueva. La propia pantalla de confirmación también ofrece acceso directo
+a esta bandeja cuando `DEBUG=True`.
+
+Si Mailpit todavía no está iniciado, recrea los servicios después de descargar los
+cambios:
+
+```bash
+docker compose up -d --build
+```
+
+En producción debe configurarse un servidor SMTP mediante las variables `EMAIL_*` y
+desactivarse `DEBUG`; el acceso a la bandeja local no se mostrará.
 
 ## Requisitos del entorno
 
