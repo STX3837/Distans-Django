@@ -24,6 +24,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - mailpit
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -33,6 +34,17 @@ services:
       - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=mailpit
+      - EMAIL_PORT=1025
+      - EMAIL_USE_TLS=False
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: distans_mailpit
+    ports:
+      - "8025:8025"
+    restart: unless-stopped
 
   order_cleanup:
     build: .
