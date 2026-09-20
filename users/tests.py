@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .forms import AccountUpdateForm, AdminUserForm, SignUpForm
@@ -163,6 +164,56 @@ class RootUrlTests(TestCase):
         self.assertRedirects(response, reverse('catalog'), fetch_redirect_response=False)
         self.assertTrue(self.client.session.get('guest'))
         self.assertEqual(self.client.session.get('cart')['1']['cantidad'], 1)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='recuperar@example.com',
+            password='OldPassword123!',
+            nombre='Ana',
+            apellidos='Prueba',
+        )
+
+    def test_login_links_to_password_reset(self):
+        response = self.client.get(reverse('login'))
+
+        self.assertContains(response, reverse('password_reset'))
+        self.assertContains(response, 'He olvidado mi contraseña')
+
+    def test_request_sends_reset_email_without_revealing_accounts(self):
+        response = self.client.post(
+            reverse('password_reset'),
+            {'email': self.user.email},
+        )
+
+        self.assertRedirects(response, reverse('password_reset_done'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('/accounts/reset/', mail.outbox[0].body)
+
+        response = self.client.post(
+            reverse('password_reset'),
+            {'email': 'inexistente@example.com'},
+        )
+        self.assertRedirects(response, reverse('password_reset_done'))
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_valid_link_allows_setting_a_new_password(self):
+        self.client.post(reverse('password_reset'), {'email': self.user.email})
+        reset_path = mail.outbox[0].body.split('http://testserver', 1)[1].splitlines()[0]
+
+        response = self.client.get(reset_path)
+        self.assertRedirects(response, response.url, fetch_redirect_response=False)
+
+        response = self.client.post(
+            response.url,
+            {'new_password1': 'NewSecurePassword123!', 'new_password2': 'NewSecurePassword123!'},
+        )
+
+        self.assertRedirects(response, reverse('password_reset_complete'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewSecurePassword123!'))
 
 
 class FavoriteViewTests(TestCase):
