@@ -7,12 +7,12 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils.crypto import get_random_string
 from django.utils import timezone
-from django.db.models import F
+from django.db.models import F, Sum
 
 from carts.models import Carrito
 from products.models import Producto
 
-from .models import Pedido, ProductoPedido
+from .models import Pedido, ProductoPedido, Subpedido
 
 TAX_RATE = Decimal('0.21')
 SHIPPING_COST = Decimal('0.00')
@@ -189,8 +189,14 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             producto.stock -= line['cantidad']
             producto.save(update_fields=['stock', 'updated_at'])
 
+            subpedido, _ = Subpedido.objects.get_or_create(
+                pedido=pedido,
+                tienda=producto.tienda,
+                defaults={'nombre_tienda': producto.tienda.nombre if producto.tienda else ''},
+            )
             ProductoPedido.objects.create(
                 pedido=pedido,
+                subpedido=subpedido,
                 producto=producto,
                 tienda=producto.tienda,
                 nombre_producto=producto.nombre,
@@ -201,6 +207,71 @@ def create_order_from_checkout(*, user, buyer_data, address_data, payment_method
             )
 
     return pedido
+
+
+def sync_order_status(pedido):
+    """Derive the buyer-facing status from the active store suborders."""
+    pedido = Pedido.objects.get(pk=pedido.pk)
+    if pedido.estado in {'pendiente_pago', 'entregado'}:
+        return pedido.estado
+    states = list(pedido.subpedidos.values_list('estado', flat=True))
+    active_states = [state for state in states if state != 'cancelado']
+    if not active_states:
+        target = 'cancelado'
+    elif all(state == 'recogido' for state in active_states):
+        target = 'enviado'
+    else:
+        target = 'preparacion'
+    if pedido.estado != target:
+        Pedido.objects.filter(pk=pedido.pk).update(estado=target, updated_at=timezone.now())
+    return target
+
+
+def recalculate_order_totals(pedido):
+    """Recalculate financial values excluding cancelled product lines."""
+    active_total = pedido.items.filter(cancelado=False).aggregate(value=Sum('total'))['value'] or ZERO
+    active_total = _money(active_total)
+    tax = _money(active_total * TAX_RATE)
+    shipping = pedido.coste_entrega if active_total > ZERO else ZERO
+    pedido.subtotal = active_total
+    pedido.descuento = ZERO
+    pedido.impuesto = tax
+    pedido.coste_entrega = shipping
+    pedido.total = _money(active_total + tax + shipping)
+    pedido.save(update_fields=['subtotal', 'descuento', 'impuesto', 'coste_entrega', 'total', 'updated_at'])
+    return pedido
+
+
+def cancel_suborder(subpedido):
+    """Cancel one store portion, restore only its stock and retain its lines for history."""
+    with transaction.atomic():
+        locked = Subpedido.objects.select_for_update().select_related('pedido').get(pk=subpedido.pk)
+        if locked.estado in {'cancelado', 'recogido'}:
+            return False
+        pedido = Pedido.objects.select_for_update().get(pk=locked.pedido_id)
+        now = timezone.now()
+        items = list(locked.items.select_for_update().select_related('producto').filter(cancelado=False))
+        if pedido.stock_descontado or pedido.stock_reservado:
+            for item in sorted(items, key=lambda line: line.producto_id or 0):
+                if item.producto_id:
+                    Producto.objects.filter(pk=item.producto_id).update(stock=F('stock') + item.cantidad)
+        locked.items.filter(cancelado=False).update(cancelado=True, cancelado_at=now, updated_at=now)
+        locked.estado = 'cancelado'
+        locked.cancelado_at = now
+        locked.requiere_reembolso = pedido.estado_pago == 'pagado'
+        locked.save(update_fields=['estado', 'cancelado_at', 'requiere_reembolso', 'updated_at'])
+        recalculate_order_totals(pedido)
+        sync_order_status(pedido)
+        if not pedido.items.filter(cancelado=False).exists():
+            Pedido.objects.filter(pk=pedido.pk).update(
+                estado='cancelado',
+                stock_descontado=False,
+                stock_reservado=False,
+                reserva_expira=None,
+                estado_pago='reembolso_pendiente' if pedido.estado_pago == 'pagado' else 'cancelado',
+                updated_at=now,
+            )
+        return True
 
 
 def release_order_stock_reservation(pedido):

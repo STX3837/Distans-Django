@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -147,6 +148,7 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/distans-ui.css' %}?v=20260925-5">
 </head>
 <body>
     {% include "header.html" %}
@@ -165,5 +167,6 @@
     </main>
 
     {% block extra_js %}{% endblock %}
+    <script src="{% static 'js/distans-ui.js' %}?v=20260925-5" defer></script>
 </body>
 </html>

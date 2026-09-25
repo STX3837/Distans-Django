@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Pedido, ProductoPedido
+from .models import Pedido, ProductoPedido, Subpedido
 
 
 class ProductoPedidoInline(admin.TabularInline):
@@ -8,13 +8,19 @@ class ProductoPedidoInline(admin.TabularInline):
     readonly_fields = ('created_at', 'updated_at')
 
 
+class SubpedidoInline(admin.TabularInline):
+    model = Subpedido
+    extra = 0
+    readonly_fields = ('created_at', 'updated_at', 'cancelado_at')
+
+
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
     list_display = ('codigo_pedido', 'comprador_nombre', 'usuario', 'estado', 'total', 'fecha', 'created_at')
     list_filter = ('estado', 'estado_pago', 'metodo_pago', 'fecha')
     search_fields = ('codigo_pedido', 'comprador_nombre', 'comprador_apellidos', 'comprador_email', 'usuario__email')
     readonly_fields = ('created_at', 'updated_at', 'estado_pago', 'stripe_checkout_session_id', 'stock_reservado', 'stock_descontado', 'reserva_expira')
-    inlines = [ProductoPedidoInline]
+    inlines = [SubpedidoInline, ProductoPedidoInline]
     fieldsets = (
         ('Información del pedido', {
             'fields': ('codigo_pedido', 'usuario', 'fecha', 'estado')
@@ -44,7 +50,15 @@ class PedidoAdmin(admin.ModelAdmin):
 
 @admin.register(ProductoPedido)
 class ProductoPedidoAdmin(admin.ModelAdmin):
-    list_display = ('pedido', 'producto', 'cantidad', 'precio_unitario', 'total')
+    list_display = ('pedido', 'subpedido', 'producto', 'cantidad', 'precio_unitario', 'total', 'cancelado')
     list_filter = ('pedido__estado', 'producto')
     search_fields = ('pedido__codigo_pedido', 'producto__nombre')
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(Subpedido)
+class SubpedidoAdmin(admin.ModelAdmin):
+    list_display = ('pedido', 'tienda', 'estado', 'requiere_reembolso', 'updated_at')
+    list_filter = ('estado', 'requiere_reembolso', 'tienda')
+    search_fields = ('pedido__codigo_pedido', 'nombre_tienda')
+    readonly_fields = ('created_at', 'updated_at', 'cancelado_at')

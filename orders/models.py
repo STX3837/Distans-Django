@@ -70,8 +70,36 @@ class Pedido(models.Model):
         ordering = ['-created_at']
 
 
+class Subpedido(models.Model):
+    ESTADO_CHOICES = [
+        ('preparacion', 'En preparación'),
+        ('listo', 'Listo para recoger'),
+        ('recogido', 'Recogido'),
+        ('cancelado', 'Cancelado'),
+    ]
+
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='subpedidos')
+    tienda = models.ForeignKey('stores.Tienda', on_delete=models.SET_NULL, null=True, related_name='subpedidos')
+    nombre_tienda = models.CharField(max_length=255, blank=True)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='preparacion')
+    requiere_reembolso = models.BooleanField(default=False)
+    cancelado_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.pedido.codigo_pedido} · {self.nombre_tienda or self.tienda or "Tienda"}'
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['pedido', 'tienda'], name='unique_suborder_per_store'),
+        ]
+
+
 class ProductoPedido(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='items')
+    subpedido = models.ForeignKey(Subpedido, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
     producto = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True, blank=True)
     tienda = models.ForeignKey('stores.Tienda', on_delete=models.SET_NULL, null=True, blank=True, related_name='lineas_pedido')
     nombre_producto = models.CharField(max_length=255, blank=True)
@@ -79,6 +107,8 @@ class ProductoPedido(models.Model):
     cantidad = models.IntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     total = models.DecimalField(max_digits=10, decimal_places=2)
+    cancelado = models.BooleanField(default=False)
+    cancelado_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -21,7 +21,7 @@ db.sqlite3
 
 # Archivos estáticos y multimedia (opcional en desarrollo, vital en producción)
 /media/
-/static/
+/staticfiles/
 
 # Archivos de tu IDE/Editor
 .vscode/

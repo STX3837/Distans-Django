@@ -18,8 +18,9 @@ from products.views import buyer_or_guest_required, _is_seller
 from stores.models import Tienda
 from users.models import User
 
-from .forms import CheckoutAddressForm, CheckoutBuyerForm, CheckoutPaymentForm, OrderLookupForm, PedidoEstadoForm
-from .models import Pedido
+from .forms import (CheckoutAddressForm, CheckoutBuyerForm, CheckoutPaymentForm,
+	OrderLookupForm, PedidoAdminEstadoForm, SubpedidoEstadoForm)
+from .models import Pedido, Subpedido
 from .utils import (
 	build_cart_snapshot,
 	create_order_from_checkout,
@@ -31,6 +32,8 @@ from .utils import (
 	cancel_pending_payment,
 	_cancel_locked_order,
 	release_order_stock_reservation,
+	cancel_suborder,
+	sync_order_status,
 )
 
 
@@ -66,7 +69,7 @@ def _remember_guest_order_code(request, codigo_pedido):
 
 
 def _order_base_queryset():
-	return Pedido.objects.select_related('usuario').prefetch_related('items__producto', 'items__producto__tienda')
+	return Pedido.objects.select_related('usuario').prefetch_related('subpedidos__tienda', 'items__producto', 'items__producto__tienda')
 
 
 def _buyer_orders_for_request(request):
@@ -560,6 +563,24 @@ def vendor_order_list(request):
 	if user_filter:
 		orders = orders.filter(Q(usuario__email__icontains=user_filter) | Q(usuario__nombre__icontains=user_filter) | Q(usuario__apellidos__icontains=user_filter) | Q(comprador_email__icontains=user_filter) | Q(comprador_nombre__icontains=user_filter) | Q(comprador_apellidos__icontains=user_filter))
 
+	# Normalise legacy/test-created lines that do not yet point to a suborder.
+	for order in orders.prefetch_related('items__tienda', 'items__producto__tienda'):
+		for item in order.items.filter(subpedido__isnull=True):
+			store = item.tienda or (item.producto.tienda if item.producto else None)
+			if store:
+				suborder, _ = Subpedido.objects.get_or_create(
+					pedido=order, tienda=store, defaults={'nombre_tienda': store.nombre}
+				)
+				item.subpedido = suborder
+				item.save(update_fields=['subpedido', 'updated_at'])
+
+	# Each row represents the portion of an order belonging to one store.
+	suborders = Subpedido.objects.select_related('pedido', 'tienda', 'pedido__usuario').filter(pedido__in=orders)
+	if selected_store is not None:
+		suborders = suborders.filter(tienda=selected_store)
+	elif not (request.user.is_staff or request.user.rol == User.Role.ADMIN):
+		suborders = suborders.filter(tienda=getattr(request.user, 'tienda', None))
+
 	if request.user.is_staff or request.user.rol == User.Role.ADMIN:
 		buyers = User.objects.filter(pedidos__isnull=False).order_by('email').distinct()
 	else:
@@ -570,7 +591,7 @@ def vendor_order_list(request):
 		request,
 		'orders/vendor_order_list.html',
 		{
-			'orders': orders.order_by('-created_at'),
+			'suborders': suborders.order_by('-pedido__created_at', 'created_at'),
 			'buyers': buyers,
 			'current_code': search_code,
 			'current_user_filter': user_filter,
@@ -598,40 +619,67 @@ def vendor_order_detail(request, codigo_pedido):
 		if not pedido.items.filter(Q(tienda=selected_store) | Q(tienda__isnull=True, producto__tienda=selected_store)).exists():
 			raise Http404
 
+	# Compatibility fallback for lines created before the suborder migration.
+	if selected_store is not None:
+		subpedido = pedido.subpedidos.filter(tienda=selected_store).first()
+		if subpedido is None:
+			legacy_items = pedido.items.filter(Q(tienda=selected_store) | Q(tienda__isnull=True, producto__tienda=selected_store))
+			if legacy_items.exists():
+				subpedido = Subpedido.objects.create(pedido=pedido, tienda=selected_store, nombre_tienda=selected_store.nombre)
+				legacy_items.update(subpedido=subpedido)
+	else:
+		subpedido = pedido.subpedidos.first()
+
+	is_admin = bool(request.user.is_staff or request.user.rol == User.Role.ADMIN)
 	if request.method == 'POST':
 		with transaction.atomic():
 			pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
-			form = PedidoEstadoForm(request.POST, instance=pedido)
+			form = PedidoAdminEstadoForm(request.POST, instance=pedido) if is_admin else SubpedidoEstadoForm(request.POST, instance=subpedido)
 			valid = form.is_valid()
 			if valid:
 				target_state = form.cleaned_data['estado']
-				# ModelForm validation updates the instance; reload the persisted state.
-				pedido.refresh_from_db()
-				if target_state == 'cancelado':
-					try:
-						valid = cancel_pending_payment(pedido) if pedido.estado == 'pendiente_pago' else _cancel_locked_order(pedido)
-					except (RuntimeError, stripe.error.StripeError):
-						valid = False
-					if not valid:
-						form.add_error('estado', 'No se puede cancelar un pago confirmado o en proceso sin comprobarlo.')
-				else:
+				if is_admin:
+					pedido.refresh_from_db()
 					pedido.estado = target_state
 					pedido.save(update_fields=['estado', 'updated_at'])
+				else:
+					subpedido.refresh_from_db()
+					if target_state == 'cancelado':
+						if pedido.estado == 'pendiente_pago':
+							if pedido.subpedidos.exclude(estado='cancelado').count() != 1:
+								valid = False
+								form.add_error('estado', 'No se puede cancelar parcialmente un pago que todavía está en curso.')
+							else:
+								try:
+									valid = cancel_pending_payment(pedido)
+								except (RuntimeError, stripe.error.StripeError):
+									valid = False
+								if valid:
+									cancel_suborder(subpedido)
+						else:
+							valid = cancel_suborder(subpedido)
+					else:
+						subpedido.estado = target_state
+						subpedido.save(update_fields=['estado', 'updated_at'])
+						sync_order_status(pedido)
 		if valid:
-			messages.success(request, 'El estado del pedido se ha actualizado correctamente.')
+			messages.success(request, 'El estado se ha actualizado correctamente.')
 			redirect_target = f"{reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido})}?tienda={selected_store.pk}" if selected_store else reverse('vendor_order_detail', kwargs={'codigo_pedido': pedido.codigo_pedido})
 			return redirect(redirect_target)
 	else:
-		form = PedidoEstadoForm(instance=pedido)
+		form = PedidoAdminEstadoForm(instance=pedido) if is_admin else SubpedidoEstadoForm(instance=subpedido)
 
 	return render(
 		request,
 		'orders/order_detail.html',
 		{
 			'order': pedido,
-			'order_items': _vendor_order_items(pedido, request.user),
+			'order_items': subpedido.items.select_related('producto').all() if subpedido else _vendor_order_items(pedido, request.user),
 			'can_edit_status': True,
 			'status_form': form,
+			'has_status_actions': bool(form.fields['estado'].choices),
 			'selected_store': selected_store,
+			'suborder': subpedido,
+			'is_admin_order_view': is_admin,
 		},
 	)

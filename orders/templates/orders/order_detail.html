@@ -122,6 +122,9 @@
         text-decoration: none;
         font-weight: 700;
     }
+
+    .cancelled-item { opacity: .62; background: #fff5f5; text-decoration: line-through; }
+    .cancelled-label { color: #b42332; font-weight: 800; text-decoration: none; display: inline-block; }
 </style>
 {% endblock %}
 
@@ -130,7 +133,7 @@
     <div class="detail-card">
         <div class="detail-header">
             <h1>Pedido {{ order.codigo_pedido }}</h1>
-            <span class="state-badge">{{ order.get_estado_display }}</span>
+            <span class="state-badge">{% if suborder and not is_admin_order_view %}{{ suborder.get_estado_display }}{% else %}{{ order.get_estado_display }}{% endif %}</span>
         </div>
 
         <div class="info-grid">
@@ -191,21 +194,23 @@
                     <th>Cantidad</th>
                     <th>Precio unitario</th>
                     <th>Total</th>
+                    <th>Estado</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in order_items %}
-                    <tr>
+                    <tr{% if item.cancelado %} class="cancelled-item"{% endif %}>
                         <td>{% if item.nombre_producto %}{{ item.nombre_producto }}{% elif item.producto %}{{ item.producto.nombre }}{% else %}Producto eliminado{% endif %}</td>
                         <td>{{ item.cantidad }}</td>
                         <td>{{ item.precio_unitario }} €</td>
                         <td>{{ item.total }} €</td>
+                        <td>{% if item.cancelado %}<span class="cancelled-label">Cancelado</span>{% else %}Activo{% endif %}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-        {% if can_edit_status and status_form %}
+        {% if can_edit_status and status_form and has_status_actions %}
             <div class="status-form">
                 <form method="post">
                     {% csrf_token %}

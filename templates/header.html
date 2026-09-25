@@ -75,8 +75,9 @@
             {% endif %}
         </nav>
     </div>
+</header>
 
-    {% if not user.is_authenticated or user.rol == 'comprador' %}
+{% if not user.is_authenticated or user.rol == 'comprador' %}
         <div class="search-modal" id="location-modal" hidden>
             <div class="search-modal-backdrop" data-close-modal="location-modal"></div>
             <div class="search-modal-card" role="dialog" aria-modal="true" aria-labelledby="location-modal-title">
@@ -132,8 +133,7 @@
                 </form>
             </div>
         </div>
-    {% endif %}
-</header>
+{% endif %}
 
 <style>
     .header {
