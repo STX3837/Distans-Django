@@ -1,7 +1,7 @@
 from django import forms
 from django.core.validators import RegexValidator
 
-from .models import Pedido
+from .models import Pedido, Subpedido
 
 
 NAME_VALIDATOR = RegexValidator(
@@ -224,4 +224,40 @@ class PedidoEstadoForm(forms.ModelForm):
         allowed_states = transitions.get(current_state, set())
         self.fields['estado'].choices = [
             choice for choice in Pedido.ESTADO_CHOICES if choice[0] in allowed_states
+        ]
+
+
+class SubpedidoEstadoForm(forms.ModelForm):
+    class Meta:
+        model = Subpedido
+        fields = ['estado']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        transitions = {
+            'preparacion': {'listo', 'cancelado'},
+            'listo': {'recogido', 'cancelado'},
+            'recogido': set(),
+            'cancelado': set(),
+        }
+        allowed = transitions.get(self.instance.estado if self.instance else None, set())
+        if self.instance and self.instance.pedido.estado == 'pendiente_pago':
+            allowed = {'cancelado'}
+        self.fields['estado'].choices = [
+            choice for choice in Subpedido.ESTADO_CHOICES if choice[0] in allowed
+        ]
+
+
+class PedidoAdminEstadoForm(forms.ModelForm):
+    class Meta:
+        model = Pedido
+        fields = ['estado']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        allowed = set()
+        if self.instance and self.instance.estado == 'enviado':
+            allowed.add('entregado')
+        self.fields['estado'].choices = [
+            choice for choice in Pedido.ESTADO_CHOICES if choice[0] in allowed
         ]

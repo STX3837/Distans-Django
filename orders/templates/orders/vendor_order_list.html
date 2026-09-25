@@ -110,19 +110,19 @@
                 <th>Comprador</th>
                 <th>Fecha</th>
                 <th>Estado</th>
-                <th>Total</th>
+                <th>Tienda</th>
                 <th>Acción</th>
             </tr>
         </thead>
         <tbody>
-            {% for order in orders %}
+            {% for suborder in suborders %}
                 <tr>
-                    <td><a class="link-button" href="{% url 'vendor_order_detail' order.codigo_pedido %}?tienda={{ selected_store.pk|default_if_none:'' }}">{{ order.codigo_pedido }}</a></td>
-                    <td>{{ order.comprador_nombre }} {{ order.comprador_apellidos }}</td>
-                    <td>{{ order.fecha }}</td>
-                    <td><span class="status-pill">{{ order.get_estado_display }}</span></td>
-                    <td>{{ order.total }} €</td>
-                    <td><a class="link-button" href="{% url 'vendor_order_detail' order.codigo_pedido %}?tienda={{ selected_store.pk|default_if_none:'' }}">Editar</a></td>
+                    <td><a class="link-button" href="{% url 'vendor_order_detail' suborder.pedido.codigo_pedido %}?tienda={{ suborder.tienda_id }}">{{ suborder.pedido.codigo_pedido }}</a></td>
+                    <td>{{ suborder.pedido.comprador_nombre }} {{ suborder.pedido.comprador_apellidos }}</td>
+                    <td>{{ suborder.pedido.fecha }}</td>
+                    <td><span class="status-pill">{{ suborder.get_estado_display }}</span></td>
+                    <td>{{ suborder.nombre_tienda }}</td>
+                    <td><a class="link-button" href="{% url 'vendor_order_detail' suborder.pedido.codigo_pedido %}?tienda={{ suborder.tienda_id }}">Gestionar</a></td>
                 </tr>
             {% empty %}
                 <tr>
