@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ store.nombre }} - Productos{% endblock %}
 
@@ -112,7 +113,7 @@
                         {% if product.imagen %}
                             <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
                         {% else %}
-                            <div style="color:#999; font-size:14px; text-align:center; padding:10px;">Sin imagen</div>
+                            <img src="{% static 'img/default-product.png' %}" alt="Imagen predeterminada de producto">
                         {% endif %}
                     </div>
                     <div class="product-info">

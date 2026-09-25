@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Mi Carrito - DISTANS{% endblock %}
 
@@ -293,6 +294,8 @@
                             <a class="item-image" href="{% url 'product_detail' item.producto.pk %}" aria-label="Ver {{ item.producto.nombre }}">
                                 {% if item.producto.imagen %}
                                     <img src="{{ item.producto.imagen.url }}" alt="{{ item.producto.nombre }}">
+                                {% else %}
+                                    <img src="{% static 'img/default-product.png' %}" alt="Imagen predeterminada de producto">
                                 {% endif %}
                             </a>
                             <div class="item-info">
@@ -329,6 +332,8 @@
                             <a class="item-image" href="{% url 'product_detail' item.id %}" aria-label="Ver {{ item.nombre }}">
                                 {% if item.imagen %}
                                     <img src="{{ item.imagen }}" alt="{{ item.nombre }}">
+                                {% else %}
+                                    <img src="{% static 'img/default-product.png' %}" alt="Imagen predeterminada de producto">
                                 {% endif %}
                             </a>
                             <div class="item-info">

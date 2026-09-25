@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Home vendedor - DISTANS{% endblock %}
 
@@ -145,7 +146,7 @@
                     {% if store.imagen %}
                         <img class="store-image" src="{{ store.imagen.url }}" alt="{{ store.nombre }}">
                     {% else %}
-                        <div class="store-image"></div>
+                        <img class="store-image" src="{% static 'img/default-store.png' %}" alt="Imagen predeterminada de tienda">
                     {% endif %}
                     <div class="store-info">
                         <h2>{{ store.nombre }}</h2>

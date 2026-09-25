@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Tiendas - DISTANS{% endblock %}
 
@@ -43,6 +44,7 @@
     }
 
     .store-card-link { color: inherit; text-decoration: none; flex-grow: 1; }
+    .store-image { width: calc(100% + 40px); height: 180px; margin: -20px -20px 18px; object-fit: cover; display: block; background: #eaffdf; }
     .favorite-btn { padding: 8px 12px; background: #fff; color: #4caf50; border: 1px solid #4caf50; border-radius: 5px; cursor: pointer; font-weight: bold; }
     .favorite-btn.active { background: #e8f5e9; }
 
@@ -109,6 +111,7 @@
             {% for tienda in stores %}
                 <div class="store-card">
                     <a href="{% url 'store_products' tienda.pk %}" class="store-card-link">
+                        <img class="store-image" src="{% if tienda.imagen %}{{ tienda.imagen.url }}{% else %}{% static 'img/default-store.png' %}{% endif %}" alt="{{ tienda.nombre }}" loading="lazy">
                         <div class="store-name">{{ tienda.nombre }}</div>
                         <div class="store-desc">{{ tienda.descripcion|truncatewords:15 }}</div>
                         <div class="popularity">Popularidad: {{ tienda.popularidad_media|floatformat:1 }}/5</div>
