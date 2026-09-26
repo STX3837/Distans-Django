@@ -56,6 +56,24 @@ def _parse_decimal(value):
 		return None
 
 
+def _parse_popularity_bucket(value):
+	"""Devuelve un tramo entero de popularidad entre 0 y 5."""
+	parsed = _parse_decimal(value)
+	if parsed is None or parsed != parsed.to_integral_value() or not Decimal('0') <= parsed <= Decimal('5'):
+		return None
+	return int(parsed)
+
+
+def _filter_by_popularity_bucket(queryset, value):
+	bucket = _parse_popularity_bucket(value)
+	if bucket is None:
+		return queryset
+	queryset = queryset.filter(popularidad_media__gte=bucket)
+	if bucket < 5:
+		queryset = queryset.filter(popularidad_media__lt=bucket + 1)
+	return queryset
+
+
 def _filtered_stores(request):
 	tiendas = Tienda.objects.annotate(
 		visitas_count=Count('visitas', distinct=True),
@@ -80,12 +98,10 @@ def _filtered_stores(request):
 	if get_catalog_mode(request) == 'online':
 		tiendas = tiendas.filter(online_store_filter())
 	categoria = request.GET.get('categoria', '').strip()
-	popularidad_min = _parse_decimal(request.GET.get('popularidad_min'))
+	popularidad = request.GET.get('popularidad_min')
 	if categoria:
 		tiendas = tiendas.filter(productos__categoria=categoria).distinct()
-	if popularidad_min is not None:
-		tiendas = tiendas.filter(popularidad_media__gte=max(Decimal('0'), min(popularidad_min, Decimal('5'))))
-	return tiendas
+	return _filter_by_popularity_bucket(tiendas, popularidad)
 
 
 @buyer_or_guest_required

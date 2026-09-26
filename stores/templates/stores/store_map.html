@@ -158,10 +158,11 @@
         }
     });
 
+    let selectedMarker = null;
     if (markers.length > 0) {
         const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
         map.fitBounds(bounds.pad(0.25));
-        const selectedMarker = stores.find(store => store.selected);
+        selectedMarker = stores.find(store => store.selected);
         if (selectedMarker) {
             map.setView([selectedMarker.latitude, selectedMarker.longitude], 15);
         }
@@ -175,7 +176,9 @@
         fill: false,
         weight: 2
     }).addTo(map);
-    map.setView([{{ geo_search.latitude }}, {{ geo_search.longitude }}], 12);
+    if (!selectedMarker) {
+        map.setView([{{ geo_search.latitude }}, {{ geo_search.longitude }}], 12);
+    }
     {% endif %}
 </script>
 {% endblock %}

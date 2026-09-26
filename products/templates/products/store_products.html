@@ -95,7 +95,7 @@
         </select>
         <input type="number" name="precio_min" min="0" step="0.01" value="{{ current_price_min }}" placeholder="Precio mínimo">
         <input type="number" name="precio_max" min="0" step="0.01" value="{{ current_price_max }}" placeholder="Precio máximo">
-        <input type="number" name="popularidad_min" min="0" max="5" step="0.1" value="{{ current_popularity_min }}" placeholder="Popularidad mínima">
+        <input type="number" name="popularidad_min" min="0" max="5" step="1" value="{{ current_popularity_min }}" placeholder="Popularidad (0-5)">
         <button type="submit">Filtrar</button>
     </form>
 
@@ -109,7 +109,7 @@
         <div class="product-grid">
             {% for product in products %}
                 <div class="product-card">
-                    <div class="product-image">
+                    <div class="product-image" style="--card-image: url('{% if product.imagen %}{{ product.imagen.url }}{% else %}{% static 'img/default-product.png' %}{% endif %}');">
                         {% if product.imagen %}
                             <img src="{{ product.imagen.url }}" alt="{{ product.nombre }}">
                         {% else %}

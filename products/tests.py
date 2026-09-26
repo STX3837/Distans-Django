@@ -144,6 +144,32 @@ class SellerMetricsTests(TestCase):
 		self.assertEqual(VisitaProducto.objects.filter(producto=self.product).count(), 2)
 
 
+class ProductPopularityFilterTests(TestCase):
+	def setUp(self):
+		seller = User.objects.create_user(
+			email='vendedor-filtro-productos@test.com', password='Password123',
+			nombre='Vendedor', apellidos='Filtro', rol=User.Role.SELLER,
+		)
+		store = Tienda.objects.create(nombre='Tienda filtro', vendedor=seller)
+		self.zero = Producto.objects.create(nombre='Popularidad 0', precio=10, tienda=store)
+		self.decimal = Producto.objects.create(nombre='Popularidad 0.x', precio=10, tienda=store)
+		self.one = Producto.objects.create(nombre='Popularidad 1.x', precio=10, tienda=store)
+		for index in range(4):
+			VisitaProducto.objects.create(producto=self.decimal, session_key=f'decimal-{index}')
+		for index in range(2):
+			VisitaProducto.objects.create(producto=self.one, session_key=f'one-{index}')
+		session = self.client.session
+		session['guest'] = True
+		session.save()
+
+	def test_zero_bucket_includes_zero_and_decimal_values_only(self):
+		response = self.client.get(reverse('catalog'), {'popularidad_min': '0'})
+		product_ids = set(response.context['products'].values_list('pk', flat=True))
+
+		self.assertEqual(product_ids, {self.zero.pk, self.decimal.pk})
+		self.assertContains(response, 'step="1"')
+
+
 class PremiumCheckoutTests(TestCase):
 	def test_premium_checkout_uses_monthly_price(self):
 		seller = User.objects.create_user(

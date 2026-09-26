@@ -79,7 +79,7 @@ Todas las rutas se sirven desde `http://localhost:8000` en el entorno local.
 
 ## Datos de demostración
 
-Después de levantar Docker y aplicar las migraciones, puedes preparar una demo completa:
+Después de levantar Docker y aplicar las migraciones, la demo completa se prepara con:
 
 ```bash
 docker compose exec web python manage.py seed_demo
@@ -106,30 +106,30 @@ Todas las cuentas nuevas tienen la contraseña **`DemoDistans2026!`**:
 | Vendedor Premium: Centro, Sevilla | `sevilla-centro@demo.example.com` |
 | Vendedor Freemium: Nervión, Sevilla | `sevilla-nervion@demo.example.com` |
 
-Entra en `http://localhost:8000`. Para probar el radio de búsqueda, selecciona Madrid
+La aplicación queda disponible en `http://localhost:8000`. Para comprobar el radio de búsqueda se puede seleccionar Madrid
 como ubicación (`40.416800`, `-3.703800`): cuatro tiendas están cerca del centro y otra
 en Alcalá de Henares, fuera de un radio de 5 km.
-También puedes seleccionar Sevilla (`37.389100`, `-5.984500`): encontrarás tres tiendas
+También es posible seleccionar Sevilla (`37.389100`, `-5.984500`), donde se muestran tres tiendas
 en Centro, Triana y Nervión, con nueve productos de ejemplo.
 
-Puedes repetir el comando sin duplicar registros. Conserva las contraseñas, el stock y
+El comando puede repetirse sin duplicar registros. Este conserva las contraseñas, el stock y
 los pedidos ya existentes; añade los ejemplos que falten. Los datos y las direcciones
 son ficticios. Los pedidos online pagados son ejemplos locales: el comando no llama a
 Stripe ni cobra dinero. Premium se habilita localmente para la demo sin suscripciones
-de Stripe. Puedes probar una compra completa con contrarrembolso sin configurar Stripe;
-para probar pagos reales de prueba y suscripciones utiliza las claves de test de Stripe.
+de Stripe. Una compra completa con contrarrembolso puede probarse sin configurar Stripe;
+las pruebas de pagos y suscripciones requieren claves de test de Stripe.
 
 ## Restablecer la contraseña
 
-Desde el inicio de sesión, pulsa **He olvidado mi contraseña**, introduce el correo de
-una cuenta activa y envía la solicitud. En el entorno Docker de desarrollo, los correos
-no se envían a una dirección real: Mailpit los captura de forma local. Abre
-`http://localhost:8025`, selecciona el mensaje recibido y utiliza su enlace para elegir
+El restablecimiento se inicia mediante **He olvidado mi contraseña** en la pantalla de
+acceso. Se introduce el correo de una cuenta activa y se envía la solicitud. En el entorno Docker de desarrollo, los correos
+no se envían a una dirección real: Mailpit los captura de forma local. La bandeja está
+disponible en `http://localhost:8025`; el enlace del mensaje recibido permite elegir
 una contraseña nueva. La propia pantalla de confirmación también ofrece acceso directo
 a esta bandeja cuando `DEBUG=True`.
 
-Si Mailpit todavía no está iniciado, recrea los servicios después de descargar los
-cambios:
+Si Mailpit todavía no está iniciado, es necesario recrear los servicios después de
+descargar los cambios:
 
 ```bash
 docker compose up -d --build
@@ -156,11 +156,11 @@ cd Distans-Django
 
 ### 2. Crear el archivo `.env`
 
-Crea `.env` en la raiz del proyecto, junto a `docker-compose.yml`:
+El archivo `.env` debe crearse en la raiz del proyecto, junto a `docker-compose.yml`:
 
 ```env
-DB_NAME=mi_base_datos
-DB_USER=mi_usuario
+DB_NAME=distans_db
+DB_USER=distans_user
 DB_PASSWORD=una_contrasena_segura
 
 # Opcional. Necesario para probar los pagos con Stripe.
@@ -200,7 +200,7 @@ se almacenan en `media/`, que se comparte con el contenedor de Django.
 docker compose exec web python manage.py migrate
 ```
 
-Si la base de datos aun esta arrancando, espera unos segundos y repite el comando.
+Si la base de datos aun esta arrancando, el comando debe repetirse tras unos segundos.
 
 ### 5. Crear un usuario administrador
 
@@ -210,8 +210,8 @@ docker compose exec web python manage.py createsuperuser
 
 El panel de administracion esta disponible en `http://localhost:8000/admin`.
 
-Puedes omitir `createsuperuser` si utilizas el administrador que crea `seed_demo`.
-Para una demo con contenido, ejecuta el comando de la sección de datos de demostración
+El paso `createsuperuser` puede omitirse si se utiliza el administrador creado por `seed_demo`.
+Para obtener una demo con contenido, se ejecuta el comando de la sección de datos de demostración
 después de `migrate`.
 
 ### Configuración del entorno
@@ -315,18 +315,18 @@ su vigencia no caduca por fecha.
 
 ### Recibir eventos en local
 
-Instala y autentica la [CLI oficial de Stripe](https://docs.stripe.com/stripe-cli).
-Ejecuta en una terminal del equipo, fuera de Docker:
+Es necesario instalar y autenticar la [CLI oficial de Stripe](https://docs.stripe.com/stripe-cli).
+Los siguientes comandos se ejecutan en una terminal del equipo, fuera de Docker:
 
 ```bash
 stripe login
 stripe listen --forward-to http://localhost:8000/api/pagos/stripe/webhook/
 ```
 
-Copia el secreto `whsec_...` que muestra `listen` a `STRIPE_WEBHOOK_SECRET` en `.env`,
-recrea `web` y mantén la terminal del listener abierta. El secreto del listener puede
+El secreto `whsec_...` que muestra `listen` se copia a `STRIPE_WEBHOOK_SECRET` en `.env`.
+A continuación, se recrea `web` y se mantiene abierta la terminal del listener. El secreto puede
 ser distinto del secreto de un endpoint configurado en el Dashboard. Stripe no puede
-acceder directamente al `localhost` de tu dispositivo; la CLI reenvía los eventos.
+acceder directamente al `localhost` del equipo; la CLI reenvía los eventos.
 [Documentación de webhooks de Stripe](https://docs.stripe.com/webhooks).
 
 Eventos que procesa la integración:
@@ -337,13 +337,13 @@ Eventos que procesa la integración:
   `customer.subscription.deleted`.
 - `invoice.paid`, `invoice.payment_failed`.
 
-Para probar Premium, entra con un vendedor Freemium de la demo. Para probar una compra
-online, utiliza productos de una tienda Premium. Los pedidos creados por `seed_demo`
+Premium se prueba con un vendedor Freemium de la demo, mientras que una compra online
+requiere productos de una tienda Premium. Los pedidos creados por `seed_demo`
 no sustituyen una prueba del checkout de Stripe.
 
 ### Tarjeta de prueba
 
-Stripe debe utilizarse en modo test. Al iniciar el pago mediante pasarela, utiliza estos datos:
+Stripe debe utilizarse en modo test. El pago mediante pasarela admite estos datos de prueba:
 
 | Campo | Valor |
 | --- | --- |
@@ -352,7 +352,7 @@ Stripe debe utilizarse en modo test. Al iniciar el pago mediante pasarela, utili
 | CVC | Cualquier numero de tres digitos, por ejemplo `123` |
 | Codigo postal | Cualquier codigo postal valido |
 
-No utilices tarjetas reales. Las claves `pk_test_`, `sk_test_` y `whsec_` deben pertenecer a una cuenta de Stripe en modo test.
+No deben utilizarse tarjetas reales. Las claves `pk_test_`, `sk_test_` y `whsec_` deben pertenecer a una cuenta de Stripe en modo test.
 Referencia: [tarjetas de prueba de Stripe](https://docs.stripe.com/testing#cards).
 
 ## Arquitectura y datos
@@ -418,6 +418,173 @@ docker compose run --rm web python manage.py makemigrations --check --dry-run
 La suite cubre usuarios y permisos, favoritos, filtros geográficos, checkout,
 contrarrembolso, pagos, Premium, cancelaciones, stock e idempotencia de la demo.
 Las pruebas usan su propia base de datos; no cargan la demo en la base de desarrollo.
+
+### Pruebas de carga
+
+La batería de [`load_tests/locustfile.py`](load_tests/locustfile.py) utiliza Locust para
+simular usuarios que hacen peticiones HTTP reales a Django. Mide peticiones por segundo,
+tiempos de respuesta (p50, p95 y p99) y porcentaje de errores. No solicita recursos
+estáticos ni llama a Stripe, por lo que la medición se concentra en Django y PostgreSQL.
+
+Estas pruebas no deben ejecutarse contra producción. Crean sesiones, visitas y carritos de
+invitados y pueden utilizar una cantidad considerable de CPU y conexiones de base de
+datos. Los siguientes comandos están escritos para PowerShell y deben ejecutarse desde
+la raíz del repositorio.
+
+#### 1. Preparar la aplicación y los datos
+
+La aplicación y el conjunto de datos reproducible se preparan con:
+
+```powershell
+docker compose up -d --build
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py seed_demo
+```
+
+Antes de continuar, `http://localhost:8000` debe responder. `seed_demo` proporciona
+los productos, tiendas, pedidos y cuentas que necesitan los perfiles autenticados.
+
+#### 2. Instalar Locust
+
+Para separar las dependencias de carga de las de Django, se crea un entorno virtual
+específico y se instala [`requirements-load.txt`](requirements-load.txt):
+
+```powershell
+python -m venv .load-venv
+.\.load-venv\Scripts\python.exe -m pip install -r requirements-load.txt
+```
+
+Solo es necesario repetir la instalación cuando cambie `requirements-load.txt`. Los
+comandos siguientes usan el ejecutable del entorno virtual directamente, así que no es
+necesario activarlo.
+
+#### 3. Ejecutar la prueba de referencia
+
+`baseline` es el escenario recomendado para comparar esta aplicación con otra. Dura
+4 minutos: mantiene 10 usuarios durante el primer minuto, 25 durante los dos siguientes
+y vuelve a 10 durante el último minuto.
+
+```powershell
+$env:LOAD_STAGES="baseline"
+
+.\.load-venv\Scripts\locust.exe -f load_tests\locustfile.py --headless `
+  --host http://localhost:8000 `
+  --csv load_results\baseline `
+  --html load_results\baseline.html
+```
+
+La prueba termina cuando Locust muestra `Shutting down`. La terminal debe permanecer abierta durante la ejecución.
+El informe final estará en `load_results/baseline.html` y los CSV comenzarán por
+`load_results/baseline_`.
+
+#### 4. Ejecutar una prueba de estrés
+
+Cuando `baseline` funcione correctamente, `stress` permite observar dónde empieza a
+degradarse el sistema. Dura 6 minutos y pasa por 25, 75, 150 y finalmente 25 usuarios:
+
+```powershell
+$env:LOAD_STAGES="stress"
+
+.\.load-venv\Scripts\locust.exe -f load_tests\locustfile.py --headless `
+  --host http://localhost:8000 `
+  --csv load_results\stress `
+  --html load_results\stress.html
+```
+
+El servidor puede supervisarse en paralelo con `docker stats`. Que una prueba de estrés incumpla los
+umbrales puede ser el resultado esperado: su objetivo es encontrar el límite, no aprobar
+necesariamente.
+
+#### 5. Ejecutar la prueba de escritura
+
+`write` mide operaciones autenticadas que escriben en PostgreSQL: crea un producto
+temporal por usuario, modifica repetidamente su precio y avanza pedidos aislados de
+`preparación` a `listo` y `recogido`. Al detener cada usuario, su producto temporal se
+elimina. La prueba dura 3 minutos y solo utiliza 2, 5 y finalmente 2 usuarios para evitar
+un crecimiento importante de la base de datos.
+
+Antes de cada ejecución hay que restablecer sus diez pedidos controlados. Este comando
+es idempotente, no modifica stock, no llama a Stripe y no toca los pedidos normales:
+
+```powershell
+docker compose exec web python manage.py prepare_load_test
+```
+
+Después se ejecuta el escenario:
+
+```powershell
+$env:LOAD_STAGES="write"
+
+.\.load-venv\Scripts\locust.exe -f load_tests\locustfile.py --headless `
+  --host http://localhost:8000 `
+  --csv load_results\write `
+  --html load_results\write.html
+```
+
+Si la ejecución se interrumpe bruscamente podrían quedar hasta cinco productos cuyo
+nombre empieza por `LOADTEST-`. Una ejecución normal los elimina automáticamente y
+`prepare_load_test` también elimina cualquier resto antes de la siguiente repetición,
+además de restaurar los estados de los pedidos.
+
+Los escenarios disponibles son exclusivamente `baseline`, `stress` y `write`. Los dos
+primeros usan una mezcla ponderada de 70 % de visitantes, 20 % de compradores y 10 % de
+vendedores. Las cuentas proceden de `seed_demo`; si se cambian sus credenciales pueden
+indicarse con `LOAD_BUYER_EMAIL`, `LOAD_SELLER_EMAIL` y `LOAD_PASSWORD`.
+
+#### Ver la prueba en el navegador
+
+Los archivos CSV están pensados para procesarlos o crear gráficas posteriormente. Para
+ver una ejecución de forma visual y en tiempo real, se inicia Locust sin `--headless`:
+
+```powershell
+$env:LOAD_STAGES="baseline"
+
+.\.load-venv\Scripts\locust.exe -f load_tests\locustfile.py `
+  --host http://localhost:8000 `
+  --web-host 127.0.0.1 `
+  --web-port 8089
+```
+
+La terminal debe permanecer abierta mientras se accede a `http://localhost:8089`. El botón
+**Start swarming** inicia la prueba. El escenario seleccionado en `LOAD_STAGES` controla la cantidad de
+usuarios y la duración. Durante la ejecución, Locust muestra:
+
+- Una tabla de tiempos y errores por endpoint en **Statistics**.
+- Gráficas de usuarios, peticiones por segundo y latencia en **Charts**.
+- Las excepciones y peticiones fallidas en **Failures** y **Exceptions**.
+- La posibilidad de descargar los datos desde **Download Data**.
+
+Al terminar la prueba, los datos pueden revisarse mientras la interfaz siga abierta.
+Locust se cierra desde la terminal con `Ctrl+C`.
+
+También es posible abrir directamente los informes `load_results/baseline.html`,
+`load_results/stress.html` o `load_results/write.html`. Son informes estáticos y no
+requieren que Locust esté funcionando.
+
+#### Umbrales y lectura de resultados
+
+La ejecución devuelve código 1 si más del 1 % de las peticiones falla, si el p95 global
+supera 1200 ms o si no se registra ninguna petición. Los límites se pueden modificar:
+
+```powershell
+$env:LOAD_MAX_FAILURE_RATIO="0.005"  # 0,5 %
+$env:LOAD_MAX_P95_MS="800"
+```
+
+Las métricas principales son:
+
+- `Requests/s`: trabajo atendido por segundo; cuanto mayor, mejor.
+- `p50`: tiempo que no supera la mitad de las peticiones.
+- `p95`: tiempo que no supera el 95 %; es la referencia principal de latencia.
+- `p99`: muestra las peticiones excepcionalmente lentas.
+- `Failures`: cantidad y porcentaje de errores.
+
+Para una comparación justa, deben utilizarse en las dos aplicaciones el mismo hardware, datos, perfil,
+etapas y generador de carga. Se recomiendan al menos cinco repeticiones alternando el orden A/B
+y la comparación de la mediana, no del mejor resultado. También conviene conservar los HTML y CSV,
+analizar cada endpoint por separado y registrar CPU, RAM y consumo de PostgreSQL. Antes de cada
+repetición debe restaurarse el mismo estado de datos para evitar que el crecimiento de sesiones,
+visitas o carritos favorezca a una de las aplicaciones.
 
 Como alternativa sin PostgreSQL, con las dependencias Python instaladas:
 
@@ -492,17 +659,17 @@ docker compose exec web python manage.py migrate
 
 | Problema | Comprobación o solución |
 | --- | --- |
-| Docker no conecta con su motor | Arranca Docker Desktop y comprueba `docker compose ps`. |
-| Django no conecta con PostgreSQL | Comprueba `docker compose logs db`, las variables de base de datos y que el servicio haya terminado de arrancar. |
-| Error de tabla o columna inexistente | Ejecuta `python manage.py migrate` dentro de `web`. |
-| Catálogo vacío | Ejecuta `seed_demo`; revisa ubicación, radio, categoría y modo de catálogo. |
-| No aparece una tienda en el mapa | Revisa sus coordenadas y el radio. Para la demo selecciona Madrid o Sevilla según las tiendas que quieras ver. |
-| Fondo del mapa con «Access blocked» / 403 | Recarga con Ctrl + F5. Las capas envían referencia del origen; revisa si el navegador o una extensión la elimina. OpenStreetMap puede rechazar peticiones que incumplan su política. |
-| No aparecen imágenes | Comprueba `media/`, el volumen compartido y `DEBUG=True` en desarrollo. |
-| No se puede añadir un producto al carrito | Comprueba stock, disponibilidad y que su tienda permita compra online. |
-| Stripe no está configurado | Añade claves de test válidas; para probar sin Stripe usa contrarrembolso. |
-| Premium no se actualiza o falla la firma del webhook | Comprueba el listener, el secreto `whsec_` y los logs de `web`. |
-| Una reserva no se libera | Revisa `order_cleanup`: conserva el stock si Stripe no responde o el pago está procesándose. |
+| Docker no conecta con su motor | Iniciar Docker Desktop y comprobar `docker compose ps`. |
+| Django no conecta con PostgreSQL | Comprobar `docker compose logs db`, las variables de base de datos y que el servicio haya terminado de arrancar. |
+| Error de tabla o columna inexistente | Ejecutar `python manage.py migrate` dentro de `web`. |
+| Catálogo vacío | Ejecutar `seed_demo` y revisar la ubicación, el radio, la categoría y el modo de catálogo. |
+| No aparece una tienda en el mapa | Revisar sus coordenadas y el radio. La demo utiliza Madrid y Sevilla como ubicaciones de referencia. |
+| Fondo del mapa con «Access blocked» / 403 | Recargar con Ctrl + F5 y comprobar si el navegador o una extensión elimina la referencia del origen. OpenStreetMap puede rechazar peticiones que incumplan su política. |
+| No aparecen imágenes | Comprobar `media/`, el volumen compartido y `DEBUG=True` en desarrollo. |
+| No se puede añadir un producto al carrito | Comprobar el stock, la disponibilidad y que la tienda permita la compra online. |
+| Stripe no está configurado | Añadir claves de test válidas o utilizar contrarrembolso para las pruebas sin Stripe. |
+| Premium no se actualiza o falla la firma del webhook | Comprobar el listener, el secreto `whsec_` y los logs de `web`. |
+| Una reserva no se libera | Revisar `order_cleanup`; conserva el stock si Stripe no responde o el pago está procesándose. |
 | Miles de archivos pendientes en Git | `.test-deps/` y `.test-downloads/` son archivos locales de pruebas y deben permanecer ignorados. |
 
 La demo genera imágenes sin internet, pero el fondo del mapa, Leaflet desde CDN y los

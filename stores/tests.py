@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.core.management import call_command
 
 from users.models import User
-from .models import Tienda
+from .models import Tienda, VisitaTienda
 
 
 class StoreMapViewTests(TestCase):
@@ -82,6 +82,16 @@ class StoreMapViewTests(TestCase):
         self.assertRedirects(response, reverse('store_list_admin'))
         self.assertFalse(Tienda.objects.filter(pk=store.pk).exists())
 
+    def test_store_card_links_to_selected_store_on_map(self):
+        store = Tienda.objects.create(nombre='Tienda con mapa', vendedor=self.seller)
+        self.client.force_login(self.buyer)
+
+        response = self.client.get(reverse('store_list'))
+
+        expected_url = f'{reverse("store_map")}?tienda={store.pk}'
+        self.assertContains(response, f'href="{expected_url}"')
+        self.assertContains(response, 'Ver en mapa')
+
     def test_expired_premium_store_cannot_sell_online(self):
         store = Tienda.objects.create(
             nombre='Tienda Premium caducada',
@@ -104,3 +114,33 @@ class StoreMapViewTests(TestCase):
         self.assertEqual(store.plan, Tienda.Plan.FREEMIUM)
         self.assertFalse(store.suscripcion_activa)
         self.assertFalse(store.pasarela_activa)
+
+
+class StorePopularityFilterTests(TestCase):
+    def _create_store(self, suffix):
+        seller = User.objects.create_user(
+            email=f'vendedor-popularidad-{suffix}@test.com',
+            password='Password123',
+            nombre='Vendedor',
+            apellidos=suffix,
+            rol=User.Role.SELLER,
+        )
+        return Tienda.objects.create(nombre=f'Tienda {suffix}', vendedor=seller)
+
+    def test_zero_bucket_includes_zero_and_decimal_values_only(self):
+        zero = self._create_store('cero')
+        decimal_store = self._create_store('decimal')
+        one = self._create_store('uno')
+        for index in range(4):
+            VisitaTienda.objects.create(tienda=decimal_store, session_key=f'decimal-{index}')
+        for index in range(2):
+            VisitaTienda.objects.create(tienda=one, session_key=f'one-{index}')
+        session = self.client.session
+        session['guest'] = True
+        session.save()
+
+        response = self.client.get(reverse('store_list'), {'popularidad_min': '0'})
+        store_ids = {store.pk for store in response.context['stores']}
+
+        self.assertEqual(store_ids, {zero.pk, decimal_store.pk})
+        self.assertContains(response, 'step="1"')

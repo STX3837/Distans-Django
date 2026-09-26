@@ -44,9 +44,15 @@
     }
 
     .store-card-link { color: inherit; text-decoration: none; flex-grow: 1; }
-    .store-image { width: calc(100% + 40px); height: 180px; margin: -20px -20px 18px; object-fit: cover; display: block; background: #eaffdf; }
+    .store-image-frame { width: calc(100% + 40px); height: 180px; margin: -20px -20px 18px; }
+    .store-image { width: 100%; height: 100%; object-fit: contain; display: block; }
     .favorite-btn { padding: 8px 12px; background: #fff; color: #4caf50; border: 1px solid #4caf50; border-radius: 5px; cursor: pointer; font-weight: bold; }
     .favorite-btn.active { background: #e8f5e9; }
+    .store-card-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 8px; }
+    .store-card-actions form { width: 100%; }
+    .store-card-actions .favorite-btn { width: 100%; }
+    .store-map-link { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .store-map-link:hover { text-decoration: underline; }
 
     .store-card:hover {
         transform: translateY(-4px);
@@ -96,7 +102,7 @@
                 <option value="{{ value }}" {% if current_category == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
-        <input type="number" name="popularidad_min" min="0" max="5" step="0.1" value="{{ current_popularity_min }}" placeholder="Popularidad mínima">
+        <input type="number" name="popularidad_min" min="0" max="5" step="1" value="{{ current_popularity_min }}" placeholder="Popularidad (0-5)">
         <button type="submit">Filtrar</button>
     </form>
 
@@ -111,7 +117,9 @@
             {% for tienda in stores %}
                 <div class="store-card">
                     <a href="{% url 'store_products' tienda.pk %}" class="store-card-link">
-                        <img class="store-image" src="{% if tienda.imagen %}{{ tienda.imagen.url }}{% else %}{% static 'img/default-store.png' %}{% endif %}" alt="{{ tienda.nombre }}" loading="lazy">
+                        <div class="store-image-frame" style="--card-image: url('{% if tienda.imagen %}{{ tienda.imagen.url }}{% else %}{% static 'img/default-store.png' %}{% endif %}');">
+                            <img class="store-image" src="{% if tienda.imagen %}{{ tienda.imagen.url }}{% else %}{% static 'img/default-store.png' %}{% endif %}" alt="{{ tienda.nombre }}" loading="lazy">
+                        </div>
                         <div class="store-name">{{ tienda.nombre }}</div>
                         <div class="store-desc">{{ tienda.descripcion|truncatewords:15 }}</div>
                         <div class="popularity">Popularidad: {{ tienda.popularidad_media|floatformat:1 }}/5</div>
@@ -119,15 +127,18 @@
                             {% if tienda.direccion %}📍 {{ tienda.direccion|truncatewords:5 }}{% endif %}
                         </div>
                     </a>
-                    {% if user.is_authenticated and user.rol == 'comprador' %}
-                        <form method="post" action="{% url 'toggle_store_favorite' tienda.pk %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="next" value="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
-                            <button type="submit" class="favorite-btn {% if tienda.pk in favorite_store_ids %}active{% endif %}">
-                                {% if tienda.pk in favorite_store_ids %}♥ Favorita{% else %}♡ Añadir a favoritos{% endif %}
-                            </button>
-                        </form>
-                    {% endif %}
+                    <div class="store-card-actions">
+                        <a class="store-map-link" href="{% url 'store_map' %}?tienda={{ tienda.pk }}">Ver en mapa</a>
+                        {% if user.is_authenticated and user.rol == 'comprador' %}
+                            <form method="post" action="{% url 'toggle_store_favorite' tienda.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+                                <button type="submit" class="favorite-btn {% if tienda.pk in favorite_store_ids %}active{% endif %}">
+                                    {% if tienda.pk in favorite_store_ids %}♥ Favorita{% else %}♡ Añadir a favoritos{% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
                 </div>
             {% endfor %}
         </div>
