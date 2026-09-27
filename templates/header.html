@@ -652,13 +652,29 @@
 
             picker._leafletMap = map;
 
-            let marker = null;
+            let locationMarker = null;
 
             const placeMarker = (lat, lng, updateInputs = true) => {
-                if (marker) {
-                    marker.setLatLng([lat, lng]);
+                if (locationMarker) {
+                    locationMarker.eachLayer((layer) => layer.setLatLng([lat, lng]));
                 } else {
-                    marker = L.marker([lat, lng]).addTo(map);
+                    const halo = L.circleMarker([lat, lng], {
+                        radius: 15,
+                        stroke: false,
+                        fillColor: '#4285f4',
+                        fillOpacity: 0.2,
+                        interactive: false,
+                    });
+                    const dot = L.circleMarker([lat, lng], {
+                        radius: 8,
+                        color: '#ffffff',
+                        weight: 3,
+                        opacity: 1,
+                        fillColor: '#1a73e8',
+                        fillOpacity: 1,
+                        interactive: false,
+                    });
+                    locationMarker = L.layerGroup([halo, dot]).addTo(map);
                 }
 
                 if (updateInputs) {

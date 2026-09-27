@@ -250,7 +250,9 @@ def cancel_suborder(subpedido):
             return False
         pedido = Pedido.objects.select_for_update().get(pk=locked.pedido_id)
         now = timezone.now()
-        items = list(locked.items.select_for_update().select_related('producto').filter(cancelado=False))
+        items = list(
+            locked.items.select_for_update(of=('self',)).select_related('producto').filter(cancelado=False)
+        )
         if pedido.stock_descontado or pedido.stock_reservado:
             for item in sorted(items, key=lambda line: line.producto_id or 0):
                 if item.producto_id:

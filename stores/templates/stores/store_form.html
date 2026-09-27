@@ -158,6 +158,8 @@
     <div class="form-footer">
         {% if store %}
             <a href="{% url 'store_detail' store.pk %}">← Volver</a>
+        {% elif cancel_url %}
+            <a href="{{ cancel_url }}">← Volver</a>
         {% else %}
             <a href="{% url 'store_list_admin' %}">← Volver</a>
         {% endif %}

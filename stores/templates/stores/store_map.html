@@ -168,6 +168,29 @@
         }
     }
 
+    {% if geo_search.has_location %}
+    const selectedLocation = [{{ geo_search.latitude }}, {{ geo_search.longitude }}];
+    L.circleMarker(selectedLocation, {
+        radius: 15,
+        stroke: false,
+        fillColor: '#4285f4',
+        fillOpacity: 0.2,
+        interactive: false
+    }).addTo(map);
+    L.circleMarker(selectedLocation, {
+        radius: 8,
+        color: '#ffffff',
+        weight: 3,
+        opacity: 1,
+        fillColor: '#1a73e8',
+        fillOpacity: 1,
+        interactive: false
+    }).bindTooltip('Tu ubicación seleccionada').addTo(map);
+    if (!selectedMarker) {
+        map.setView(selectedLocation, 12);
+    }
+    {% endif %}
+
     {% if geo_search.has_location and geo_search.has_radius %}
     const radiusMeters = {{ geo_search.radius_km|floatformat:"-2" }} * 1000;
     L.circle([{{ geo_search.latitude }}, {{ geo_search.longitude }}], {
@@ -176,9 +199,6 @@
         fill: false,
         weight: 2
     }).addTo(map);
-    if (!selectedMarker) {
-        map.setView([{{ geo_search.latitude }}, {{ geo_search.longitude }}], 12);
-    }
     {% endif %}
 </script>
 {% endblock %}

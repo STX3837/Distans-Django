@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from functools import wraps
 from .models import Tienda, VisitaTienda
-from .forms import TiendaForm
+from .forms import SellerTiendaForm, TiendaForm
 from .utils import filter_stores_by_geo, get_catalog_mode, get_geo_search_state, set_catalog_mode as save_catalog_mode
 from .utils import online_store_filter
 from users.models import User
@@ -171,6 +171,39 @@ def store_create_admin(request):
 		form = TiendaForm()
 
 	return render(request, 'stores/store_form.html', {'form': form, 'title': 'Nueva tienda'})
+
+
+@login_required
+def store_create_seller(request):
+	"""Permite que un vendedor sin tienda cree y se asigne su propia tienda."""
+	if request.user.rol != User.Role.SELLER:
+		return redirect('account_detail')
+
+	existing_store = Tienda.objects.filter(vendedor=request.user).first()
+	if existing_store:
+		messages.info(request, 'Ya tienes una tienda asignada.')
+		return redirect('store_detail', pk=existing_store.pk)
+
+	if request.method == 'POST':
+		form = SellerTiendaForm(request.POST, request.FILES)
+		if form.is_valid():
+			tienda = form.save(commit=False)
+			tienda.vendedor = request.user
+			tienda.ubicacion = ''
+			tienda.plan = Tienda.Plan.FREEMIUM
+			tienda.suscripcion_activa = False
+			tienda.pasarela_activa = False
+			tienda.save()
+			messages.success(request, 'Tu tienda se ha creado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		form = SellerTiendaForm()
+
+	return render(request, 'stores/store_form.html', {
+		'form': form,
+		'title': 'Crear mi tienda',
+		'cancel_url': reverse('seller_home'),
+	})
 
 
 @login_required

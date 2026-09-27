@@ -6,6 +6,9 @@ urlpatterns = [
     # Público
     path('tiendas/', views.store_list, name='store_list'),
     path('tiendas/mapa/', views.store_map, name='store_map'),
+
+    # Vendedor
+    path('vendedor/tienda/nueva/', views.store_create_seller, name='store_create_seller'),
     
     # Admin
     path('gestion/tiendas/', views.store_list_admin, name='store_list_admin'),
