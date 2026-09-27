@@ -70,6 +70,7 @@ class StoreMapViewTests(TestCase):
 
     def test_map_shows_selected_location_without_radius(self):
         session = self.client.session
+        session['guest'] = True
         session['search_latitude'] = 40.4168
         session['search_longitude'] = -3.7038
         session.save()
