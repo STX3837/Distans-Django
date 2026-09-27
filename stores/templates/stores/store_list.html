@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tiendas - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stores-container {
+        max-width: 900px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+
+    .search-banner {
+        margin: 14px 0 18px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: #eef7ee;
+        color: #1b5e20;
+        font-weight: 600;
+    }
+
+    h1 {
+        margin-bottom: 30px;
+        color: #333;
+    }
+
+    .store-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .store-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .store-card-link { color: inherit; text-decoration: none; flex-grow: 1; }
+    .store-image-frame { width: calc(100% + 40px); height: 180px; margin: -20px -20px 18px; }
+    .store-image { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .favorite-btn { padding: 8px 12px; background: #fff; color: #4caf50; border: 1px solid #4caf50; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .favorite-btn.active { background: #e8f5e9; }
+    .store-card-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 8px; }
+    .store-card-actions form { width: 100%; }
+    .store-card-actions .favorite-btn { width: 100%; }
+    .store-map-link { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .store-map-link:hover { text-decoration: underline; }
+
+    .store-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .store-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    .store-desc {
+        color: #666;
+        font-size: 14px;
+        flex-grow: 1;
+        margin-bottom: 10px;
+    }
+
+    .store-info {
+        font-size: 12px;
+        color: #999;
+    }
+
+    .empty-message {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    .filters select, .filters input, .filters button { padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; }
+    .filters button { background: #4caf50; color: white; cursor: pointer; }
+    .popularity { color: #9a6700; font-size: 14px; margin-top: 5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stores-container">
+    <h1>🏪 Tiendas</h1>
+
+    <form method="get" class="filters" aria-label="Filtros de tiendas">
+        <select name="categoria">
+            <option value="">Todas las categorías</option>
+            {% for value, label in category_choices %}
+                <option value="{{ value }}" {% if current_category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="number" name="popularidad_min" min="0" max="5" step="1" value="{{ current_popularity_min }}" placeholder="Popularidad (0-5)">
+        <button type="submit">Filtrar</button>
+    </form>
+
+    {% if geo_search.has_location and geo_search.has_radius %}
+        <div class="search-banner">Mostrando tiendas dentro de {{ geo_search.radius_label }} de tu ubicacion seleccionada.</div>
+    {% elif geo_search.has_location %}
+        <div class="search-banner">Tienes una ubicacion seleccionada, pero no se aplica ningun radio.</div>
+    {% endif %}
+    
+    {% if stores %}
+        <div class="store-grid">
+            {% for tienda in stores %}
+                <div class="store-card">
+                    <a href="{% url 'store_products' tienda.pk %}" class="store-card-link">
+                        <div class="store-image-frame" style="--card-image: url('{% if tienda.imagen %}{{ tienda.imagen.url }}{% else %}{% static 'img/default-store.png' %}{% endif %}');">
+                            <img class="store-image" src="{% if tienda.imagen %}{{ tienda.imagen.url }}{% else %}{% static 'img/default-store.png' %}{% endif %}" alt="{{ tienda.nombre }}" loading="lazy">
+                        </div>
+                        <div class="store-name">{{ tienda.nombre }}</div>
+                        <div class="store-desc">{{ tienda.descripcion|truncatewords:15 }}</div>
+                        <div class="popularity">Popularidad: {{ tienda.popularidad_media|floatformat:1 }}/5</div>
+                        <div class="store-info">
+                            {% if tienda.direccion %}📍 {{ tienda.direccion|truncatewords:5 }}{% endif %}
+                        </div>
+                    </a>
+                    <div class="store-card-actions">
+                        <a class="store-map-link" href="{% url 'store_map' %}?tienda={{ tienda.pk }}">Ver en mapa</a>
+                        {% if user.is_authenticated and user.rol == 'comprador' %}
+                            <form method="post" action="{% url 'toggle_store_favorite' tienda.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+                                <button type="submit" class="favorite-btn {% if tienda.pk in favorite_store_ids %}active{% endif %}">
+                                    {% if tienda.pk in favorite_store_ids %}♥ Favorita{% else %}♡ Añadir a favoritos{% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-message">No hay tiendas disponibles para la busqueda actual.</div>
+    {% endif %}
+</div>
+{% endblock %}

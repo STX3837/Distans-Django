@@ -19,16 +19,65 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
+      - ./media:/app/media
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - mailpit
     environment:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
+      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=mailpit
+      - EMAIL_PORT=1025
+      - EMAIL_USE_TLS=False
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: distans_mailpit
+    ports:
+      - "8025:8025"
+    restart: unless-stopped
+
+  order_cleanup:
+    build: .
+    command: sh /app/scripts/run_order_cleanup.sh
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+
+  cart_cleanup:
+    build: .
+    container_name: django_cart_cleanup
+    command: sh /app/scripts/run_guest_cart_cleanup.sh
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CART_CLEANUP_INTERVAL_SECONDS=86400
 
 volumes:
   postgres_data:

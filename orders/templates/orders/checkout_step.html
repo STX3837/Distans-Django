@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .checkout-shell {
+        width: min(1180px, calc(100% - 40px));
+        margin: 32px auto 64px;
+        display: grid;
+        gap: 24px;
+    }
+
+    .checkout-hero {
+        padding: 28px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #0f172a 0%, #123b2e 55%, #1f6f5b 100%);
+        color: #fff;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+    }
+
+    .checkout-hero h1 {
+        margin: 0 0 10px;
+        font-size: clamp(28px, 3vw, 42px);
+        line-height: 1.05;
+    }
+
+    .checkout-hero p {
+        max-width: 760px;
+        margin: 0;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .checkout-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+        gap: 24px;
+    }
+
+    .checkout-card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .checkout-progress {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+    }
+
+    .progress-pill {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: #e8f3ef;
+        color: #1f6f5b;
+    }
+
+    .progress-pill.active {
+        background: #1f6f5b;
+        color: #fff;
+    }
+
+    .checkout-form {
+        display: grid;
+        gap: 18px;
+    }
+
+    .checkout-field label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #0f172a;
+    }
+
+    .checkout-field input,
+    .checkout-field select,
+    .checkout-field textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        font-size: 15px;
+        background: #fff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .checkout-field input:focus,
+    .checkout-field select:focus,
+    .checkout-field textarea:focus {
+        outline: none;
+        border-color: #1f6f5b;
+        box-shadow: 0 0 0 4px rgba(31, 111, 91, 0.12);
+    }
+
+    .payment-options {
+        display: grid;
+        gap: 12px;
+        margin-top: 4px;
+    }
+
+    .payment-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    .payment-option input {
+        margin-top: 4px;
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        accent-color: #1f6f5b;
+    }
+
+    .payment-option-text {
+        display: grid;
+        gap: 4px;
+        color: #0f172a;
+        line-height: 1.35;
+    }
+
+    .payment-option-text strong {
+        font-size: 15px;
+    }
+
+    .payment-option input:checked + .payment-option-text {
+        color: #0f172a;
+    }
+
+    .payment-option input:checked + .payment-option-text strong {
+        color: #1f6f5b;
+    }
+
+    .payment-option:has(input:checked) {
+        border-color: #1f6f5b;
+        background: #eefaf5;
+        box-shadow: 0 0 0 4px rgba(31, 111, 91, 0.08);
+    }
+
+    .checkout-errors {
+        margin-top: 8px;
+        color: #b42318;
+        font-size: 13px;
+    }
+
+    .checkout-errors-list {
+        list-style: none;
+        margin: 8px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 6px;
+    }
+
+    .checkout-errors-list li {
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    .checkout-help {
+        margin-top: 10px;
+        color: #475467;
+        font-size: 13px;
+    }
+
+    .checkout-submit {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 15px 18px;
+        border: none;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #1f6f5b, #0f766e);
+        color: #fff;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 16px 28px rgba(31, 111, 91, 0.22);
+    }
+
+    .trust-panel {
+        display: grid;
+        gap: 16px;
+    }
+
+    .trust-badge {
+        padding: 16px;
+        border-radius: 18px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .trust-badge strong {
+        display: block;
+        margin-bottom: 6px;
+        color: #0f172a;
+    }
+
+    .summary-box {
+        background: linear-gradient(180deg, #f8fafc, #ffffff);
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
+        padding: 18px;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .summary-row:last-child {
+        border-bottom: none;
+    }
+
+    .summary-row.total {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .checkout-note {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #ecfdf3;
+        color: #14532d;
+        border: 1px solid #bbf7d0;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    @media (max-width: 960px) {
+        .checkout-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="checkout-shell">
+    <section class="checkout-hero">
+        <h1>{{ step_title }}</h1>
+        <p>{{ step_description }}</p>
+    </section>
+
+    <div class="checkout-grid">
+        <section class="checkout-card">
+            <div class="checkout-progress">
+                <span class="progress-pill {% if step_index == 1 %}active{% endif %}">1. Datos</span>
+                <span class="progress-pill {% if step_index == 2 %}active{% endif %}">2. Direcciones</span>
+                <span class="progress-pill {% if step_index == 3 %}active{% endif %}">3. Pago</span>
+            </div>
+
+            <form method="post" class="checkout-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="checkout-errors">
+                        <ul class="checkout-errors-list">
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% for field in form.visible_fields %}
+                    <div class="checkout-field">
+                        {{ field.label_tag }}
+                        {% if field.name == 'metodo_pago' %}
+                            <div class="payment-options">
+                                {% for radio in field %}
+                                    <label class="payment-option" for="{{ radio.id_for_label }}">
+                                        {{ radio.tag }}
+                                        <span class="payment-option-text">
+                                            <strong>{{ radio.choice_label }}</strong>
+                                            {% if radio.choice_label == 'Contrarrembolso' %}
+                                                Pagarás al recibir el pedido.
+                                            {% else %}
+                                                Te llevará a una pasarela segura para confirmar el pago.
+                                            {% endif %}
+                                        </span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ field }}
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="checkout-errors">
+                                <ul class="checkout-errors-list">
+                                    {% for error in field.errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="checkout-submit">{{ next_label }}</button>
+            </form>
+        </section>
+
+        <aside class="trust-panel">
+            <div class="trust-badge">
+                <strong>Checkout protegido</strong>
+                <div>{{ security_note }}</div>
+            </div>
+
+            {% if summary %}
+                <div class="summary-box">
+                    <strong style="display:block; margin-bottom:12px; color:#0f172a;">Resumen del pedido</strong>
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <span>{{ summary.subtotal }} €</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Descuento</span>
+                        <span>-{{ summary.descuento }} €</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Impuestos y envío</span>
+                        <span>{{ summary.impuestos_y_envio }} €</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total</span>
+                        <span>{{ summary.total }} €</span>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="checkout-note">
+                {% if step_index == 3 %}
+                    La pasarela usa una función de validación que siempre responde con éxito para mantener una experiencia estable y segura durante la compra.
+                {% else %}
+                    Revisa los datos con calma. Antes del pago final te mostraremos un resumen completo con importes, direcciones y método seleccionado.
+                {% endif %}
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}

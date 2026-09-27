@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Eliminar Usuario - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 70px);
+        padding: 40px 20px;
+    }
+
+    .delete-container {
+        background-color: #ffebee;
+        padding: 40px;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 2px solid #f44336;
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 30px;
+        color: #c62828;
+    }
+
+    .delete-message {
+        background-color: #fff5f5;
+        border-left: 4px solid #f44336;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        color: #b71c1c;
+        font-weight: bold;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    button {
+        flex: 1;
+        padding: 12px;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    button:hover {
+        background-color: #da190b;
+    }
+
+    .cancel-button {
+        background-color: #4caf50;
+    }
+
+    .cancel-button:hover {
+        background-color: #45a049;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="delete-container">
+        <h1>⚠ Eliminar Usuario</h1>
+
+        {% if can_delete %}
+            <div class="delete-message">
+                Vas a eliminar a <strong>{{ user_obj.get_full_name }}</strong> ({{ user_obj.email }}).<br>
+                Esta acción no se puede deshacer.
+            </div>
+
+            <div class="form-actions">
+                <form method="post" style="flex: 1;">
+                    {% csrf_token %}
+                    <button type="submit">Eliminar</button>
+                </form>
+                <a href="{% url 'admin_user_list' %}" class="cancel-button" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: white;">Cancelar</a>
+            </div>
+        {% else %}
+            <div class="delete-message">
+                No puedes eliminar a <strong>{{ user_obj.get_full_name }}</strong> ({{ user_obj.email }}).
+                {% if user_obj.is_superuser %}
+                    Este usuario es un superusuario y debe conservarse para mantener el acceso administrativo.
+                {% else %}
+                    No está permitido eliminar tu propia cuenta desde esta pantalla.
+                {% endif %}
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'admin_user_list' %}" class="cancel-button" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: white;">Volver</a>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

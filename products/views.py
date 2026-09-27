@@ -1,0 +1,681 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.forms import modelformset_factory
+from django.shortcuts import get_object_or_404, redirect, render
+from django.http import JsonResponse
+from django.db.models import Case, Count, ExpressionWrapper, F, FloatField, Value, When
+from django.db.models.functions import Least, TruncDate
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
+from functools import wraps
+from decimal import Decimal, InvalidOperation
+from datetime import timedelta
+
+from users.models import User
+from carts.models import Carrito, ProductoCarrito
+from orders.utils import build_cart_snapshot
+
+from .forms import ProductoForm, ProductoStockForm
+from .models import Producto, VisitaProducto
+from stores.models import Tienda, VisitaTienda
+from stores.utils import filter_products_by_geo, get_catalog_mode, get_geo_search_state, store_is_within_radius
+from stores.utils import online_store_filter
+
+
+def _ensure_session_key(request):
+	if not request.session.session_key:
+		request.session.create()
+	return request.session.session_key
+
+
+def _visitor_key(request):
+	if request.user.is_authenticated:
+		return f'user:{request.user.pk}'
+	return _ensure_session_key(request)
+
+
+def _record_product_visit(request, producto):
+	if not _can_record_guest_visit(request, 'product', producto.pk):
+		return
+	if request.user.is_authenticated:
+		VisitaProducto.objects.get_or_create(producto=producto, session_key=_visitor_key(request))
+	else:
+		VisitaProducto.objects.create(producto=producto, session_key=_visitor_key(request))
+	_mark_guest_visit(request, 'product', producto.pk)
+
+
+def _record_store_visit(request, tienda):
+	if not _can_record_guest_visit(request, 'store', tienda.pk):
+		return
+	if request.user.is_authenticated:
+		VisitaTienda.objects.get_or_create(tienda=tienda, session_key=_visitor_key(request))
+	else:
+		VisitaTienda.objects.create(tienda=tienda, session_key=_visitor_key(request))
+	_mark_guest_visit(request, 'store', tienda.pk)
+
+
+def _guest_visit_session_key(scope, object_id):
+	return f'last_guest_visit_at:{scope}:{object_id}'
+
+
+def _can_record_guest_visit(request, scope, object_id):
+	if request.user.is_authenticated:
+		return True
+	last_visit = request.session.get(_guest_visit_session_key(scope, object_id))
+	if last_visit is None:
+		return True
+	return timezone.now().timestamp() - float(last_visit) >= 20 * 60
+
+
+def _mark_guest_visit(request, scope, object_id):
+	if not request.user.is_authenticated:
+		request.session[_guest_visit_session_key(scope, object_id)] = timezone.now().timestamp()
+		request.session.modified = True
+
+
+def _get_or_create_cart(request):
+	if request.user.is_authenticated:
+		cart, _ = Carrito.objects.get_or_create(
+			usuario=request.user,
+			defaults={'sesion': _ensure_session_key(request)},
+		)
+		return cart
+
+	session_key = _ensure_session_key(request)
+	cart, _ = Carrito.objects.get_or_create(usuario=None, sesion=session_key)
+	return cart
+
+
+def _has_quantity_plan(producto):
+	"""Mientras no exista un campo formal de plan, se permite gestionar cantidades por defecto."""
+	vendedor = getattr(getattr(producto, 'tienda', None), 'vendedor', None)
+	plan = getattr(vendedor, 'plan', None)
+	if plan is None:
+		return True
+	return str(plan).lower() in {'premium', 'pro', 'plus', 'business'}
+
+
+def _is_product_orderable(producto):
+	return bool(producto.disponible and producto.stock > 0)
+
+
+def _to_int(value, default=1):
+	try:
+		return int(value)
+	except (TypeError, ValueError):
+		return default
+
+
+def buyer_or_guest_required(view_func):
+	"""Decorador que requiere estar autenticado como comprador o como invitado."""
+	@wraps(view_func)
+	def wrapper(request, *args, **kwargs):
+		# Si está autenticado como comprador
+		if request.user.is_authenticated and request.user.rol == User.Role.BUYER:
+			return view_func(request, *args, **kwargs)
+		
+		# Si es invitado (tiene la marca de sesión)
+		if request.session.get('guest') == True:
+			return view_func(request, *args, **kwargs)
+		
+		# En cualquier otro caso, redirigir al login
+		return redirect('login')
+	return wrapper
+
+
+@buyer_or_guest_required
+def catalog(request):
+	"""Listado público de productos de todas las tiendas."""
+	geo_state = get_geo_search_state(request)
+	productos = _filtered_products(request)
+	productos = filter_products_by_geo(productos, geo_state).order_by('-disponible', '-destacado', 'nombre')
+	return render(request, 'products/catalog.html', _product_filter_context(productos, geo_state, request))
+
+
+@buyer_or_guest_required
+def store_products(request, pk):
+	"""Listado de productos de una tienda concreta para compradores e invitados."""
+	tienda = get_object_or_404(Tienda, pk=pk)
+	_record_store_visit(request, tienda)
+	geo_state = get_geo_search_state(request)
+	store_allowed = store_is_within_radius(tienda, geo_state['latitude'], geo_state['longitude'], geo_state['radius_km'])
+	productos = _filtered_products(request, tienda=tienda).filter(disponible=True).order_by('-destacado', 'nombre') if store_allowed else tienda.productos.none()
+	return render(
+		request,
+		'products/store_products.html',
+		{
+			'store': tienda,
+			'products': productos,
+			'geo_search': geo_state,
+			'store_in_radius': store_allowed,
+			'category_choices': Producto.CATEGORIAS_CHOICES,
+			'current_category': request.GET.get('categoria', ''),
+			'current_price_min': request.GET.get('precio_min', ''),
+			'current_price_max': request.GET.get('precio_max', ''),
+			'current_popularity_min': request.GET.get('popularidad_min', ''),
+		},
+	)
+
+
+def _is_seller(user):
+	return user.is_authenticated and (user.rol == User.Role.SELLER or user.is_staff or user.rol == User.Role.ADMIN)
+
+
+def _get_accessible_stores(user):
+	if user.is_staff or user.rol == User.Role.ADMIN:
+		return Tienda.objects.select_related('vendedor').all().order_by('nombre')
+
+	tienda = getattr(user, 'tienda', None)
+	if tienda is None:
+		return Tienda.objects.none()
+
+	return Tienda.objects.filter(pk=tienda.pk).select_related('vendedor')
+
+
+def _get_store_for_user(user, store_pk):
+	if user.is_staff or user.rol == User.Role.ADMIN:
+		return get_object_or_404(Tienda, pk=store_pk)
+
+	return get_object_or_404(Tienda, pk=store_pk, vendedor=user)
+
+
+def _get_product_for_store(user, store_pk, pk):
+	tienda = _get_store_for_user(user, store_pk)
+	return tienda, get_object_or_404(Producto, pk=pk, tienda=tienda)
+
+
+@login_required
+def seller_home(request):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	stores = list(_get_accessible_stores(request.user).annotate(
+		visitas_count=Count('visitas', distinct=True),
+		visitas_productos_count=Count('productos__visitas', distinct=True),
+	))
+	store_ids = [store.pk for store in stores]
+	for store in stores:
+		store.product_metrics = store.productos.annotate(
+			visitas_count=Count('visitas', distinct=True),
+		).order_by('-visitas_count', 'nombre')
+
+	start_date = timezone.localdate() - timedelta(days=6)
+	store_visits_by_day = {
+		item['day']: item['total']
+		for item in VisitaTienda.objects.filter(
+			tienda_id__in=store_ids,
+			created_at__date__gte=start_date,
+		).annotate(day=TruncDate('created_at')).values('day').annotate(total=Count('id'))
+	}
+	product_visits_by_day = {
+		item['day']: item['total']
+		for item in VisitaProducto.objects.filter(
+			producto__tienda_id__in=store_ids,
+			created_at__date__gte=start_date,
+		).annotate(day=TruncDate('created_at')).values('day').annotate(total=Count('id'))
+	}
+	visit_chart = []
+	for day_offset in range(7):
+		day = start_date + timedelta(days=day_offset)
+		store_total = store_visits_by_day.get(day, 0)
+		product_total = product_visits_by_day.get(day, 0)
+		visit_chart.append({
+			'label': day.strftime('%d/%m'),
+			'store_total': store_total,
+			'product_total': product_total,
+			'total': store_total + product_total,
+		})
+	chart_max = max((item['total'] for item in visit_chart), default=0)
+	for item in visit_chart:
+		item['height'] = round(item['total'] / chart_max * 100) if chart_max else 0
+
+	return render(request, 'products/seller_home.html', {
+		'stores': stores,
+		'visit_chart': visit_chart,
+	})
+
+
+@login_required
+def store_detail(request, pk):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda = _get_store_for_user(request.user, pk)
+	productos = tienda.productos.annotate(visitas_count=Count('visitas', distinct=True)).order_by('nombre')
+
+	return render(
+		request,
+		'products/store_detail.html',
+		{
+			'store': tienda,
+			'products': productos,
+			'store_visits_count': tienda.visitas.count(),
+		},
+	)
+
+
+@login_required
+def store_stock_edit(request, pk):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda = _get_store_for_user(request.user, pk)
+	productos_qs = tienda.productos.order_by('nombre')
+	StockFormSet = modelformset_factory(Producto, form=ProductoStockForm, extra=0)
+
+	if request.method == 'POST':
+		formset = StockFormSet(request.POST, queryset=productos_qs)
+		if formset.is_valid():
+			formset.save()
+			messages.success(request, 'El stock se ha actualizado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		formset = StockFormSet(queryset=productos_qs)
+
+	return render(
+		request,
+		'products/store_stock_edit.html',
+		{
+			'store': tienda,
+			'formset': formset,
+			'products': productos_qs,
+		},
+	)
+
+
+@login_required
+def product_create(request, store_pk):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda = _get_store_for_user(request.user, store_pk)
+
+	if request.method == 'POST':
+		form = ProductoForm(request.POST, request.FILES)
+		if form.is_valid():
+			producto = form.save(commit=False)
+			producto.tienda = tienda
+			producto.save()
+			messages.success(request, 'El producto se ha creado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		form = ProductoForm()
+
+	return render(
+		request,
+		'products/product_form.html',
+		{
+			'form': form,
+			'store': tienda,
+			'title': 'Nuevo producto',
+			'submit_label': 'Guardar',
+		},
+	)
+
+
+@login_required
+def product_update(request, store_pk, pk):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda, producto = _get_product_for_store(request.user, store_pk, pk)
+
+	if request.method == 'POST':
+		form = ProductoForm(request.POST, request.FILES, instance=producto)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'El producto se ha actualizado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		form = ProductoForm(instance=producto)
+
+	return render(
+		request,
+		'products/product_form.html',
+		{
+			'form': form,
+			'store': tienda,
+			'product': producto,
+			'title': producto.nombre,
+			'submit_label': 'Guardar cambios',
+		},
+	)
+
+
+@login_required
+def product_delete(request, store_pk, pk):
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda, producto = _get_product_for_store(request.user, store_pk, pk)
+
+	if request.method == 'POST':
+		producto.delete()
+		messages.success(request, 'El producto se ha eliminado correctamente.')
+		return redirect('store_detail', pk=tienda.pk)
+
+	return render(
+		request,
+		'products/product_confirm_delete.html',
+		{
+			'store': tienda,
+			'product': producto,
+		},
+	)
+
+
+# Vistas públicas para compradores
+@buyer_or_guest_required
+def product_detail(request, pk):
+	"""Detalle del producto - accesible para registrados y no registrados"""
+	producto = get_object_or_404(Producto.objects.select_related('tienda'), pk=pk)
+	if producto.tienda is None:
+		messages.warning(request, 'Este producto no está asociado a una tienda.')
+		return redirect('catalog')
+	_record_product_visit(request, producto)
+	
+	return render(
+		request,
+		'products/product_detail.html',
+		{
+			'product': producto,
+		},
+	)
+
+
+@require_http_methods(["POST"])
+@buyer_or_guest_required
+def add_to_cart(request, product_pk):
+	"""Agregar producto al carrito"""
+	producto = get_object_or_404(Producto, pk=product_pk)
+	if producto.tienda is None:
+		messages.warning(request, 'Este producto no está asociado a una tienda.')
+		return redirect('catalog')
+	if producto.tienda and not producto.tienda.permite_compra_online:
+		messages.warning(request, 'Este producto solo está disponible para compra en la tienda física.')
+		return redirect('product_detail', pk=producto.pk)
+	cantidad = _to_int(request.POST.get('cantidad', 1), default=1)
+	
+	if cantidad < 1:
+		cantidad = 1
+	cantidad = min(cantidad, producto.stock)
+
+	if not _is_product_orderable(producto):
+		messages.error(request, 'Este producto no está disponible para compra en este momento.')
+		return redirect('product_detail', pk=producto.pk)
+	
+	if request.user.is_authenticated:
+		# Carrito de usuario registrado
+		carrito = _get_or_create_cart(request)
+		item, created = ProductoCarrito.objects.get_or_create(
+			carrito=carrito,
+			producto=producto,
+			defaults={'cantidad': cantidad}
+		)
+		if not created:
+			item.cantidad = min(item.cantidad + cantidad, producto.stock)
+			item.save()
+		messages.success(request, f'{producto.nombre} añadido al carrito.')
+	else:
+		# Carrito de sesión para usuarios no registrados
+		_ensure_session_key(request)
+		_get_or_create_cart(request)
+		if 'cart' not in request.session:
+			request.session['cart'] = {}
+		
+		cart = request.session['cart']
+		product_id = str(producto.pk)
+		
+		if product_id in cart:
+			cart[product_id]['cantidad'] = min(cart[product_id]['cantidad'] + cantidad, producto.stock)
+		else:
+			cart[product_id] = {
+				'id': producto.pk,
+				'nombre': producto.nombre,
+				'precio': str(producto.precio),
+				'precio_oferta': str(producto.precio_oferta) if producto.precio_oferta else None,
+				'en_oferta': producto.en_oferta,
+				'porcentaje_descuento': str(producto.porcentaje_descuento()) if producto.tiene_oferta() else None,
+				'imagen': producto.imagen.url if producto.imagen else '',
+				'cantidad': cantidad,
+				'tienda_id': producto.tienda.pk,
+				'tienda_nombre': producto.tienda.nombre,
+			}
+		request.session.modified = True
+		messages.success(request, f'{producto.nombre} añadido al carrito.')
+	
+	return redirect('cart_view')
+
+
+@require_http_methods(["POST"])
+@buyer_or_guest_required
+def update_cart_item(request, product_pk):
+	"""Actualizar cantidad de un producto del carrito."""
+	producto = get_object_or_404(Producto, pk=product_pk)
+	nueva_cantidad = _to_int(request.POST.get('cantidad', 1), default=1)
+
+	if not _has_quantity_plan(producto):
+		messages.warning(request, 'El plan del vendedor no permite gestionar cantidades para este producto.')
+		return redirect('cart_view')
+
+	if nueva_cantidad <= 0:
+		return remove_cart_item(request, product_pk)
+
+	nueva_cantidad = min(nueva_cantidad, producto.stock)
+	if nueva_cantidad <= 0:
+		return remove_cart_item(request, product_pk)
+
+	if request.user.is_authenticated:
+		carrito = _get_or_create_cart(request)
+		item = carrito.items.filter(producto=producto).first()
+		if item:
+			item.cantidad = nueva_cantidad
+			item.save(update_fields=['cantidad', 'updated_at'])
+	else:
+		cart = request.session.get('cart', {})
+		product_id = str(producto.pk)
+		if product_id in cart:
+			cart[product_id]['cantidad'] = nueva_cantidad
+			request.session['cart'] = cart
+			request.session.modified = True
+
+	messages.success(request, 'Cantidad actualizada.')
+	return redirect('cart_view')
+
+
+@require_http_methods(["POST"])
+@buyer_or_guest_required
+def remove_cart_item(request, product_pk):
+	"""Eliminar un producto del carrito."""
+	producto = get_object_or_404(Producto, pk=product_pk)
+
+	if request.user.is_authenticated:
+		carrito = _get_or_create_cart(request)
+		carrito.items.filter(producto=producto).delete()
+	else:
+		cart = request.session.get('cart', {})
+		product_id = str(producto.pk)
+		if product_id in cart:
+			del cart[product_id]
+			request.session['cart'] = cart
+			request.session.modified = True
+
+	messages.success(request, 'Producto eliminado del carrito.')
+	return redirect('cart_view')
+
+
+@buyer_or_guest_required
+def cart_view(request):
+	"""Vista del carrito"""
+	session_items = []
+	has_items = False
+	total = Decimal('0.00')
+	cart_summary = build_cart_snapshot(request)
+
+	if request.user.is_authenticated:
+		carrito = _get_or_create_cart(request)
+		items = carrito.items.select_related('producto__tienda').all()
+		has_items = items.exists()
+	else:
+		carrito = _get_or_create_cart(request)
+		items = []
+		
+		if 'cart' in request.session:
+			cart_data = request.session['cart']
+			for item in cart_data.values():
+				try:
+					unit_price = Decimal(item.get('precio_oferta') or item.get('precio') or '0')
+				except (InvalidOperation, TypeError):
+					unit_price = Decimal('0')
+
+				qty = int(item.get('cantidad', 0))
+				subtotal = unit_price * qty
+				total += subtotal
+
+				session_items.append(
+					{
+						'id': item.get('id'),
+						'nombre': item.get('nombre', ''),
+						'tienda_id': item.get('tienda_id'),
+						'tienda_nombre': item.get('tienda_nombre', ''),
+						'imagen': item.get('imagen', ''),
+						'cantidad': qty,
+						'precio': item.get('precio'),
+						'precio_oferta': item.get('precio_oferta'),
+						'en_oferta': item.get('en_oferta', False),
+						'porcentaje_descuento': item.get('porcentaje_descuento'),
+						'subtotal': subtotal,
+					}
+				)
+
+			has_items = len(session_items) > 0
+	
+	return render(
+		request,
+		'carts/cart_view.html',
+		{
+			'carrito': carrito,
+			'items': items,
+			'session_items': session_items,
+			'has_items': has_items,
+			'summary': cart_summary,
+			'total': cart_summary['total'],
+		},
+	)
+
+@login_required
+def store_update(request, pk):
+	"""Editar información de la tienda (vendedor o admin)"""
+	if not _is_seller(request.user):
+		return redirect('account_detail')
+
+	tienda = _get_store_for_user(request.user, pk)
+
+	if request.method == 'POST':
+		from stores.forms import TiendaForm
+		form = TiendaForm(request.POST, request.FILES, instance=tienda)
+		if not request.user.is_staff:
+			for field in ['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion']:
+				form.fields.pop(field, None)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'La tienda se ha actualizado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		from stores.forms import TiendaForm
+		form = TiendaForm(instance=tienda)
+		if not request.user.is_staff:
+			for field in ['plan', 'suscripcion_activa', 'pasarela_activa', 'fecha_renovacion']:
+				form.fields.pop(field, None)
+
+	return render(
+		request,
+		'stores/store_form.html',
+		{
+			'store': tienda,
+			'form': form,
+			'title': f'Editar {tienda.nombre}',
+		},
+	)
+
+
+def _rating_annotations(queryset, visit_relation, purchase_relation):
+	queryset = queryset.annotate(
+		visitas_count=Count(visit_relation, distinct=True),
+		compras_count=Count(purchase_relation, distinct=True),
+	)
+	return queryset.annotate(
+		popularidad_media=Case(
+			When(
+				visitas_count__gt=0,
+				then=Least(
+					ExpressionWrapper(
+						(Value(4.0) + F('compras_count') * Value(5.0)) /
+						(F('visitas_count') + Value(1.0)),
+						output_field=FloatField(),
+					),
+					Value(5.0),
+				),
+			),
+			default=Value(0.0),
+			output_field=FloatField(),
+		)
+	)
+
+
+def _parse_decimal(value):
+	try:
+		return Decimal(value) if value not in (None, '') else None
+	except (InvalidOperation, TypeError, ValueError):
+		return None
+
+
+def _parse_popularity_bucket(value):
+	"""Devuelve un tramo entero de popularidad entre 0 y 5."""
+	parsed = _parse_decimal(value)
+	if parsed is None or parsed != parsed.to_integral_value() or not Decimal('0') <= parsed <= Decimal('5'):
+		return None
+	return int(parsed)
+
+
+def _filter_by_popularity_bucket(queryset, value):
+	bucket = _parse_popularity_bucket(value)
+	if bucket is None:
+		return queryset
+	queryset = queryset.filter(popularidad_media__gte=bucket)
+	if bucket < 5:
+		queryset = queryset.filter(popularidad_media__lt=bucket + 1)
+	return queryset
+
+
+def _filtered_products(request, tienda=None):
+	productos = Producto.objects.select_related('tienda')
+	if tienda is not None:
+		productos = productos.filter(tienda=tienda)
+	if get_catalog_mode(request) == 'online':
+		productos = productos.filter(online_store_filter('tienda__'))
+	productos = _rating_annotations(productos, 'visitas', 'productopedido__pedido')
+
+	categoria = request.GET.get('categoria', '').strip()
+	precio_min = _parse_decimal(request.GET.get('precio_min'))
+	precio_max = _parse_decimal(request.GET.get('precio_max'))
+	popularidad = request.GET.get('popularidad_min')
+	if categoria:
+		productos = productos.filter(categoria=categoria)
+	if precio_min is not None:
+		productos = productos.filter(precio__gte=precio_min)
+	if precio_max is not None:
+		productos = productos.filter(precio__lte=precio_max)
+	return _filter_by_popularity_bucket(productos, popularidad)
+
+
+def _product_filter_context(productos, geo_state, request):
+	return {
+		'products': productos,
+		'geo_search': geo_state,
+		'category_choices': Producto.CATEGORIAS_CHOICES,
+		'current_category': request.GET.get('categoria', ''),
+		'current_price_min': request.GET.get('precio_min', ''),
+		'current_price_max': request.GET.get('precio_max', ''),
+		'current_popularity_min': request.GET.get('popularidad_min', ''),
+	}

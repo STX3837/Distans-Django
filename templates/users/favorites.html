@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Mis favoritos - DISTANS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .favorites-page { width: min(1000px, calc(100% - 40px)); margin: 30px auto 60px; }
+    .favorites-section { margin-top: 28px; }
+    .favorites-section h2 { margin-bottom: 14px; color: #333; }
+    .favorites-list { display: grid; gap: 12px; }
+    .favorite-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .favorite-item a { color: #333; font-weight: bold; }
+    .favorite-item small { display: block; color: #777; margin-top: 4px; }
+    .favorite-remove { padding: 8px 12px; background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
+    .empty-favorites { padding: 20px; background: white; color: #666; border-radius: 8px; }
+    @media (max-width: 600px) { .favorite-item { align-items: flex-start; flex-direction: column; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="favorites-page">
+    <h1>Mis favoritos</h1>
+
+    <section class="favorites-section">
+        <h2>Tiendas</h2>
+        {% if favorite_stores %}
+            <div class="favorites-list">
+                {% for favorite in favorite_items %}
+                    {% if favorite.tienda %}
+                        <div class="favorite-item">
+                            <div>
+                                <a href="{% url 'store_products' favorite.tienda.pk %}">{{ favorite.tienda.nombre }}</a>
+                                <small>{{ favorite.tienda.direccion|default:"Sin dirección" }}</small>
+                            </div>
+                            <form method="post" action="{% url 'toggle_store_favorite' favorite.tienda.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'favorites' %}">
+                                <button type="submit" class="favorite-remove">Quitar</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-favorites">Todavía no tienes tiendas favoritas.</div>
+        {% endif %}
+    </section>
+
+    <section class="favorites-section">
+        <h2>Productos</h2>
+        {% if favorite_products %}
+            <div class="favorites-list">
+                {% for favorite in favorite_items %}
+                    {% if favorite.producto %}
+                        <div class="favorite-item">
+                            <div>
+                                <a href="{% url 'product_detail' favorite.producto.pk %}">{{ favorite.producto.nombre }}</a>
+                                <small>{{ favorite.producto.tienda.nombre }}</small>
+                            </div>
+                            <form method="post" action="{% url 'toggle_product_favorite' favorite.producto.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'favorites' %}">
+                                <button type="submit" class="favorite-remove">Quitar</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-favorites">Todavía no tienes productos favoritos.</div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

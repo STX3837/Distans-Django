@@ -12,10 +12,18 @@ db.sqlite3
 
 # Variables de entorno y secretos
 .env
+.test-deps/
+.test-downloads/
+
+# Dependencias y archivos temporales de las pruebas locales
+/.test-deps/
+/.test-downloads/
 
 # Archivos estáticos y multimedia (opcional en desarrollo, vital en producción)
 /media/
-/static/
+/staticfiles/
+/load_results/
+/.load-venv/
 
 # Archivos de tu IDE/Editor
 .vscode/
