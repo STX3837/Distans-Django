@@ -351,6 +351,11 @@ class AdminUserViewTests(TestCase):
 
         self.assertContains(response, '<h1>Crear usuario</h1>', html=True)
         self.assertContains(response, 'Guardar')
+        self.assertContains(response, '<select name="rol"', html=False)
+        self.assertEqual(
+            list(response.context['form'].fields['rol'].choices),
+            list(User.Role.choices),
+        )
 
     def test_admin_can_update_user_role(self):
         self.client.force_login(self.admin)

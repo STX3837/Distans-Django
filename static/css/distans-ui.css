@@ -31,6 +31,50 @@ body {
 }
 body, button, input, select, textarea { font-family: inherit !important; }
 img { max-width: 100%; height: auto; }
+
+/* Las miniaturas muestran la imagen completa y mantienen una retícula uniforme. */
+.store-grid { align-items: stretch; grid-auto-rows: 1fr; }
+.store-card { height: 100%; overflow: hidden; }
+.store-card .store-card-link {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+.store-card .store-image-frame,
+.product-card .product-image {
+    background-color: #eef5ef;
+    isolation: isolate;
+    overflow: hidden;
+    position: relative;
+}
+.store-card .store-image-frame::before,
+.product-card .product-image::before {
+    position: absolute;
+    z-index: 0;
+    inset: -12px;
+    background: var(--card-image) center / cover no-repeat;
+    content: "";
+    filter: blur(9px) saturate(.8);
+    opacity: .65;
+}
+.store-card .store-image {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+    object-fit: contain !important;
+    object-position: center;
+}
+.store-card .store-desc { flex: 1; }
+.store-card-actions .favorite-btn { margin-top: 0 !important; }
+.product-card .product-image { height: 120px; }
+.product-card .product-image img,
+.product-card > img.product-image {
+    position: relative;
+    z-index: 1;
+    object-fit: contain !important;
+    object-position: center;
+}
 a { color: var(--brand); transition: color .2s ease, opacity .2s ease; }
 a:hover { color: var(--brand-dark); text-decoration: none !important; }
 ::selection { background: #bfe8d8; color: var(--ink); }
@@ -322,7 +366,7 @@ tbody tr:hover { background: #f8fbfa; }
     .stores-container .store-grid, .seller-page .store-grid,
     .store-page .product-grid { grid-template-columns: 1fr !important; }
     .stores-container .store-card { padding: 14px !important; }
-    .stores-container .store-image { width: calc(100% + 28px); margin: -14px -14px 14px; }
+    .stores-container .store-image-frame { width: calc(100% + 28px); margin: -14px -14px 14px; }
     .favorite-item, .order-top, .orders-header, .admin-header {
         flex-direction: column !important;
         align-items: stretch !important;
@@ -442,7 +486,7 @@ tbody tr:hover { background: #f8fbfa; }
         border-radius: 8px !important;
         background: #f2f6f3 !important;
     }
-    .catalog-page .product-image img { object-fit: cover !important; }
+    .catalog-page .product-image img { object-fit: contain !important; }
     .catalog-page .product-info { align-self: center; }
     .catalog-page .product-info h3 {
         margin-bottom: 4px !important;

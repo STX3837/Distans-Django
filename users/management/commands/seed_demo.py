@@ -1,10 +1,10 @@
 """Create a repeatable, offline demonstration without calling payment services."""
 from datetime import timedelta
 from decimal import Decimal
-from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 
-from PIL import Image, ImageDraw
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from carts.models import Carrito, ProductoCarrito
 from orders.models import Pedido
-from orders.utils import build_cart_snapshot, create_order_from_checkout, mark_order_as_paid, release_order_stock_reservation
+from orders.utils import build_cart_snapshot, cancel_suborder, create_order_from_checkout, mark_order_as_paid, sync_order_status
 from products.models import Producto, VisitaProducto
 from stores.models import Tienda, VisitaTienda
 from users.models import Favorite, User
@@ -60,31 +60,28 @@ PRODUCTS = [
 class Command(BaseCommand):
     help = 'Crea usuarios, tiendas, productos, pedidos y estadísticas ficticios sin duplicarlos.'
 
-    def image(self, field, name, label, color):
+    def default_image(self, field, filename):
         storage = field.storage
-        path = f'demo/{name}.png'
+        path = f'demo/{filename}'
         if not storage.exists(path):
-            canvas = Image.new('RGB', (640, 420), color)
-            draw = ImageDraw.Draw(canvas)
-            draw.rounded_rectangle((60, 60, 580, 360), radius=25, fill='#ffffff')
-            draw.text((90, 150), 'DISTANS DEMO', fill='#173b35')
-            draw.text((90, 195), label, fill='#173b35')
-            data = BytesIO()
-            canvas.save(data, format='PNG')
-            path = storage.save(path, ContentFile(data.getvalue()))
+            source = Path(settings.BASE_DIR) / 'static' / 'img' / filename
+            path = storage.save(path, ContentFile(source.read_bytes()))
         field.name = path
 
     def user(self, email, role, name, admin=False, city='Madrid'):
-        user, created = User.objects.get_or_create(email=email, defaults={
+        defaults = {
             'nombre': name, 'apellidos': 'Demostración', 'rol': role,
             'telefono': '600123123', 'direccion': 'Calle Demo 10',
             'ciudad': city, 'codigo_postal': '41001' if city == 'Sevilla' else '28001', 'is_superuser': admin,
-        })
+        }
+        user, created = User.objects.get_or_create(email=email, defaults=defaults)
         if not created and (user.rol != role or admin and not user.is_superuser):
             raise CommandError(f'La cuenta {email} ya existe con otro rol. No se ha modificado.')
         if created:
             user.set_password(PASSWORD)
-            user.save()
+        for field, value in defaults.items():
+            setattr(user, field, value)
+        user.save()
         return user
 
     @transaction.atomic
@@ -96,7 +93,7 @@ class Command(BaseCommand):
         for slug, name, lat, lng, address, premium in STORES:
             city = 'Sevilla' if slug.startswith('sevilla-') else ('Alcalá de Henares' if slug == 'hogar' else 'Madrid')
             seller = self.user(f'{slug}@demo.example.com', User.Role.SELLER, name, city=city)
-            store, created = Tienda.objects.get_or_create(vendedor=seller, defaults={
+            store, _ = Tienda.objects.update_or_create(vendedor=seller, defaults={
                 'nombre': name, 'descripcion': 'Comercio ficticio para probar DISTANS.',
                 'direccion': address, 'ubicacion': city,
                 'latitud': Decimal(lat), 'longitud': Decimal(lng),
@@ -107,32 +104,37 @@ class Command(BaseCommand):
                 # Local demo Premium: no fake Stripe subscription identifiers.
                 'fecha_renovacion': None,
             })
-            if created or not store.imagen:
-                self.image(store.imagen, slug, name, '#b9ddcf')
-                store.save(update_fields=['imagen'])
+            if not stores:
+                self.default_image(store.imagen, 'default-store.png')
+            else:
+                store.imagen.name = ''
+            store.save(update_fields=['imagen'])
             stores[slug] = store
+
+        demo_codes = [f'PED-DEMO-{index:03d}' for index in range(1, 6)]
+        Pedido.objects.filter(codigo_pedido__in=demo_codes).delete()
 
         products = []
         for index, (slug, name, category, price, offer, stock) in enumerate(PRODUCTS):
-            product, created = Producto.objects.get_or_create(tienda=stores[slug], nombre=name, defaults={
+            product, _ = Producto.objects.update_or_create(tienda=stores[slug], nombre=name, defaults={
                 'descripcion': f'{name}. Producto ficticio para la demostración.',
                 'precio': Decimal(price), 'precio_oferta': Decimal(offer) if offer else None,
                 'en_oferta': bool(offer), 'categoria': category, 'marca': 'DISTANS Demo',
                 'stock': stock, 'disponible': name != 'Organizador no disponible',
                 'destacado': index % 3 == 0,
             })
-            if created or not product.imagen:
-                self.image(product.imagen, f'producto-{index + 1}', name, '#c6d9ed')
-                product.save(update_fields=['imagen'])
+            if index % 6 == 0:
+                self.default_image(product.imagen, 'default-product.png')
+            else:
+                product.imagen.name = ''
+            product.save(update_fields=['imagen'])
             products.append(product)
 
-        address = {f'{field}_{suffix}': value for suffix in ('envio', 'facturacion')
-                   for field, value in [('direccion', buyer.direccion), ('ciudad', buyer.ciudad), ('codigo_postal', buyer.codigo_postal)]}
         for index, state in enumerate(['preparacion', 'enviado', 'entregado', 'preparacion', 'cancelado']):
             code = f'PED-DEMO-{index + 1:03d}'
-            if Pedido.objects.filter(codigo_pedido=code).exists():
-                continue
             customer = buyer if index % 2 == 0 else second_buyer
+            address = {f'{field}_{suffix}': value for suffix in ('envio', 'facturacion')
+                       for field, value in [('direccion', customer.direccion), ('ciudad', customer.ciudad), ('codigo_postal', customer.codigo_postal)]}
             product = products[0] if index < 3 else products[3]
             method = 'contrarrembolso' if index < 3 else 'pasarela'
             snapshot = build_cart_snapshot(SimpleNamespace(user=SimpleNamespace(is_authenticated=False), session={
@@ -143,13 +145,19 @@ class Command(BaseCommand):
                 address_data=address, payment_method=method, cart_snapshot=snapshot)
             if method == 'pasarela' and state != 'cancelado':
                 mark_order_as_paid(order)  # Fictitious payment; no Stripe request.
-            if state == 'cancelado':
-                release_order_stock_reservation(order)
+            suborder = order.subpedidos.get()
+            if state in {'enviado', 'entregado'}:
+                suborder.estado = 'recogido'
+                suborder.save(update_fields=['estado', 'updated_at'])
+                sync_order_status(order)
+            elif state == 'cancelado':
+                cancel_suborder(suborder)
             order.refresh_from_db()
             order.codigo_pedido = code
-            order.estado = state
+            if state == 'entregado':
+                order.estado = 'entregado'
             order.fecha = timezone.localdate() - timedelta(days=index)
-            order.save()
+            order.save(update_fields=['codigo_pedido', 'estado', 'fecha', 'updated_at'])
 
         cart, _ = Carrito.objects.get_or_create(usuario=buyer)
         ProductoCarrito.objects.get_or_create(carrito=cart, producto=products[1], defaults={'cantidad': 2})

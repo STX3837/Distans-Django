@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from functools import wraps
 from .models import Tienda, VisitaTienda
-from .forms import TiendaForm
+from .forms import SellerTiendaForm, TiendaForm
 from .utils import filter_stores_by_geo, get_catalog_mode, get_geo_search_state, set_catalog_mode as save_catalog_mode
 from .utils import online_store_filter
 from users.models import User
@@ -56,6 +56,24 @@ def _parse_decimal(value):
 		return None
 
 
+def _parse_popularity_bucket(value):
+	"""Devuelve un tramo entero de popularidad entre 0 y 5."""
+	parsed = _parse_decimal(value)
+	if parsed is None or parsed != parsed.to_integral_value() or not Decimal('0') <= parsed <= Decimal('5'):
+		return None
+	return int(parsed)
+
+
+def _filter_by_popularity_bucket(queryset, value):
+	bucket = _parse_popularity_bucket(value)
+	if bucket is None:
+		return queryset
+	queryset = queryset.filter(popularidad_media__gte=bucket)
+	if bucket < 5:
+		queryset = queryset.filter(popularidad_media__lt=bucket + 1)
+	return queryset
+
+
 def _filtered_stores(request):
 	tiendas = Tienda.objects.annotate(
 		visitas_count=Count('visitas', distinct=True),
@@ -80,12 +98,10 @@ def _filtered_stores(request):
 	if get_catalog_mode(request) == 'online':
 		tiendas = tiendas.filter(online_store_filter())
 	categoria = request.GET.get('categoria', '').strip()
-	popularidad_min = _parse_decimal(request.GET.get('popularidad_min'))
+	popularidad = request.GET.get('popularidad_min')
 	if categoria:
 		tiendas = tiendas.filter(productos__categoria=categoria).distinct()
-	if popularidad_min is not None:
-		tiendas = tiendas.filter(popularidad_media__gte=max(Decimal('0'), min(popularidad_min, Decimal('5'))))
-	return tiendas
+	return _filter_by_popularity_bucket(tiendas, popularidad)
 
 
 @buyer_or_guest_required
@@ -155,6 +171,39 @@ def store_create_admin(request):
 		form = TiendaForm()
 
 	return render(request, 'stores/store_form.html', {'form': form, 'title': 'Nueva tienda'})
+
+
+@login_required
+def store_create_seller(request):
+	"""Permite que un vendedor sin tienda cree y se asigne su propia tienda."""
+	if request.user.rol != User.Role.SELLER:
+		return redirect('account_detail')
+
+	existing_store = Tienda.objects.filter(vendedor=request.user).first()
+	if existing_store:
+		messages.info(request, 'Ya tienes una tienda asignada.')
+		return redirect('store_detail', pk=existing_store.pk)
+
+	if request.method == 'POST':
+		form = SellerTiendaForm(request.POST, request.FILES)
+		if form.is_valid():
+			tienda = form.save(commit=False)
+			tienda.vendedor = request.user
+			tienda.ubicacion = ''
+			tienda.plan = Tienda.Plan.FREEMIUM
+			tienda.suscripcion_activa = False
+			tienda.pasarela_activa = False
+			tienda.save()
+			messages.success(request, 'Tu tienda se ha creado correctamente.')
+			return redirect('store_detail', pk=tienda.pk)
+	else:
+		form = SellerTiendaForm()
+
+	return render(request, 'stores/store_form.html', {
+		'form': form,
+		'title': 'Crear mi tienda',
+		'cancel_url': reverse('seller_home'),
+	})
 
 
 @login_required
