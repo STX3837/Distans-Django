@@ -1,27 +1,29 @@
-# Distans-Django
+# 🌍 Distans-Django
 
-Aplicacion web para conectar comercios y compradores mediante Django, GeoDjango y PostgreSQL con PostGIS. El proyecto esta preparado para ejecutarse con Docker Compose, que proporciona Django, GDAL, PostgreSQL y PostGIS en un entorno reproducible.
+![Django 4.2+](https://img.shields.io/badge/Django-4.2%2B-092E20?logo=django&logoColor=white)
+![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
+![PostGIS 3.4](https://img.shields.io/badge/PostGIS-3.4-336791?logo=postgresql&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-Proyecto de TFG orientado al descubrimiento de comercios por proximidad y a la compra
-online en tiendas con Premium activo. Django genera las páginas HTML en el servidor.
+Aplicación web para conectar comercios y compradores mediante Django, GeoDjango y PostgreSQL con PostGIS. El proyecto está preparado para ejecutarse con Docker Compose, que proporciona Django, GDAL, PostgreSQL y PostGIS en un entorno reproducible.
 
-## Índice
+Desarrollo backend/frontend del Trabajo de Fin de Grado «Diseño y desarrollo de un marketplace geolocalizado para el fomento del comercio de proximidad», orientado al descubrimiento de comercios por proximidad y a la compra online en tiendas con Premium activo. Django genera las páginas HTML en el servidor.
 
-- [Funcionalidades y roles](#funcionalidades-y-roles)
-- [Datos de demostración](#datos-de-demostración)
-- [Restablecer la contraseña](#restablecer-la-contraseña)
-- [Requisitos del entorno](#requisitos-del-entorno)
-- [Instalación](#instalacion)
-- [Pedidos, pagos y stock](#pedidos-pagos-y-stock)
-- [Planes de las tiendas](#planes-de-las-tiendas)
-- [Probar Stripe](#probar-stripe)
-- [Arquitectura y datos](#arquitectura-y-datos)
-- [Ejecutar las pruebas](#ejecutar-las-pruebas)
-- [Comandos útiles](#comandos-utiles)
-- [Problemas frecuentes](#problemas-frecuentes)
-- [Detener el proyecto](#detener-el-proyecto)
+## 📑 Índice
 
-## Funcionalidades y roles
+- [1. Características Principales y Roles](#1-características-principales-y-roles)
+- [2. Arquitectura y Tecnologías](#2-arquitectura-y-tecnologías)
+- [3. Requisitos Previos](#3-requisitos-previos)
+- [4. Guía de Instalación y Despliegue Local](#4-guía-de-instalación-y-despliegue-local)
+- [5. Carga de Datos de Demostración (Seed)](#5-carga-de-datos-de-demostración-seed)
+- [6. Lógica de Negocio: Pedidos, Pagos y Stock](#6-lógica-de-negocio-pedidos-pagos-y-stock)
+- [7. Integración con Stripe](#7-integración-con-stripe)
+- [8. Ejecución de Pruebas y Benchmarking](#8-ejecución-de-pruebas-y-benchmarking)
+- [9. Comandos de Administración Útiles](#9-comandos-de-administración-útiles)
+- [10. Resolución de Problemas (FAQ)](#10-resolución-de-problemas-faq)
+- [11. Detener el Proyecto y Limpiar Datos](#11-detener-el-proyecto-y-limpiar-datos)
+
+## 1. Características Principales y Roles
 
 | Acceso | Funcionalidades |
 | --- | --- |
@@ -77,75 +79,72 @@ Todas las rutas se sirven desde `http://localhost:8000` en el entorno local.
 | `/admin/` | Panel administrativo de Django. |
 | `/api/pagos/stripe/webhook/` | Recepción de eventos firmados de Stripe por POST. |
 
-## Datos de demostración
+## 2. Arquitectura y Tecnologías
 
-Después de levantar Docker y aplicar las migraciones, la demo completa se prepara con:
+El entorno Docker utiliza Python 3.11, Django 4.2, PostgreSQL 15 y PostGIS 3.4.
+`requirements.txt` declara las dependencias de Python, incluidas Pillow y Stripe.
+El Dockerfile instala las bibliotecas de GDAL y PROJ para GeoDjango.
 
-```bash
-docker compose exec web python manage.py seed_demo
+```text
+nucleo/       Configuración, rutas generales, WSGI y ASGI.
+users/        Usuarios, roles, cuenta, favoritos y comando seed_demo.
+stores/       Tiendas, planes, mapa y filtros geográficos.
+products/     Productos, catálogo, stock y panel del vendedor.
+carts/        Modelos de carrito, resumen compartido y limpieza de invitados.
+orders/       Checkout, pagos, pedidos y limpieza de reservas.
+templates/    Base HTML, cabecera, navegación y plantillas compartidas.
+scripts/      Bucles de mantenimiento ejecutados por Docker Compose.
+media/        Imágenes subidas y generadas para la demo; no se versiona.
 ```
 
-El comando genera 11 usuarios, 8 tiendas, 24 productos de las ocho categorías,
-5 pedidos en distintos estados, un carrito, favoritos y visitas para las estadísticas.
-Incluye ofertas, productos agotados y no disponibles, y tiendas Freemium y Premium.
-Las imágenes de ejemplo se generan localmente con Pillow en `media/demo/`; no requieren descargas.
+Cada aplicación incluye sus modelos, vistas, formularios, rutas, migraciones y
+plantillas según sus responsabilidades. Actualmente las vistas de carrito están en
+`products/views.py`, aunque sus modelos y su plantilla pertenecen a `carts/`.
 
-Todas las cuentas nuevas tienen la contraseña **`DemoDistans2026!`**:
-
-| Acceso | Email |
-| --- | --- |
-| Administrador | `admin@demo.example.com` |
-| Comprador | `comprador@demo.example.com` |
-| Segundo comprador | `comprador2@demo.example.com` |
-| Vendedor Premium: librería | `libreria@demo.example.com` |
-| Vendedor Premium: tecnología | `tecnologia@demo.example.com` |
-| Vendedor Freemium: jardín | `jardin@demo.example.com` |
-| Vendedor Premium: mercado | `mercado@demo.example.com` |
-| Vendedor Freemium: hogar | `hogar@demo.example.com` |
-| Vendedor Premium: Triana, Sevilla | `sevilla-triana@demo.example.com` |
-| Vendedor Premium: Centro, Sevilla | `sevilla-centro@demo.example.com` |
-| Vendedor Freemium: Nervión, Sevilla | `sevilla-nervion@demo.example.com` |
-
-La aplicación queda disponible en `http://localhost:8000`. Para comprobar el radio de búsqueda se puede seleccionar Madrid
-como ubicación (`40.416800`, `-3.703800`): cuatro tiendas están cerca del centro y otra
-en Alcalá de Henares, fuera de un radio de 5 km.
-También es posible seleccionar Sevilla (`37.389100`, `-5.984500`), donde se muestran tres tiendas
-en Centro, Triana y Nervión, con nueve productos de ejemplo.
-
-El comando puede repetirse sin duplicar registros. Este conserva las contraseñas, el stock y
-los pedidos ya existentes; añade los ejemplos que falten. Los datos y las direcciones
-son ficticios. Los pedidos online pagados son ejemplos locales: el comando no llama a
-Stripe ni cobra dinero. Premium se habilita localmente para la demo sin suscripciones
-de Stripe. Una compra completa con contrarrembolso puede probarse sin configurar Stripe;
-las pruebas de pagos y suscripciones requieren claves de test de Stripe.
-
-## Restablecer la contraseña
-
-El restablecimiento se inicia mediante **He olvidado mi contraseña** en la pantalla de
-acceso. Se introduce el correo de una cuenta activa y se envía la solicitud. En el entorno Docker de desarrollo, los correos
-no se envían a una dirección real: Mailpit los captura de forma local. La bandeja está
-disponible en `http://localhost:8025`; el enlace del mensaje recibido permite elegir
-una contraseña nueva. La propia pantalla de confirmación también ofrece acceso directo
-a esta bandeja cuando `DEBUG=True`.
-
-Si Mailpit todavía no está iniciado, es necesario recrear los servicios después de
-descargar los cambios:
-
-```bash
-docker compose up -d --build
+```mermaid
+flowchart LR
+    N[Navegador] --> U[urls.py]
+    U --> V[views.py: permisos y lógica]
+    V <--> D[(PostgreSQL / PostGIS)]
+    V --> T[Template HTML]
+    T --> N
+    V <--> S[Stripe]
+    S --> W[Webhook firmado]
+    W --> D
 ```
 
-En producción debe configurarse un servidor SMTP mediante las variables `EMAIL_*` y
-desactivarse `DEBUG`; el acceso a la bandeja local no se mostrará.
+Relaciones principales: vendedor → una tienda → muchos productos; comprador → un
+carrito → líneas con cantidad; usuario → pedidos → líneas con precios de la compra.
+Un pedido puede pertenecer a un usuario o ser de un invitado. Favoritos y visitas
+referencian productos o tiendas. El carrito del registrado utiliza líneas en la base
+de datos; el invitado guarda las líneas en su sesión y tiene un registro de carrito
+asociado a ella.
 
-## Requisitos del entorno
+Las credenciales y las tablas viven en PostgreSQL; las imágenes se guardan mediante
+el almacenamiento de Django y la base de datos conserva su ruta. Las migraciones
+versionadas crean y actualizan las tablas, pero no introducen automáticamente la demo.
+La interfaz está en español; la configuración actual de Django usa `en-us` y zona horaria UTC.
+
+### Alcance actual
+
+Docker Compose ejecuta el servidor de desarrollo `runserver`; este entorno está
+preparado para desarrollar y evaluar el TFG, no constituye un despliegue de producción.
+Un despliegue público requiere configurar servidor de aplicación, HTTPS, secretos,
+hosts y servicio de archivos estáticos y media.
+
+Los pedidos tienen un estado global aunque incluyan productos de varias tiendas;
+no existe todavía seguimiento independiente de cada envío, integración con repartidores
+ni registro del cobro en persona. Las renovaciones Premium se reflejan mediante Stripe,
+y los reembolsos online se gestionan manualmente fuera de la aplicación.
+
+## 3. Requisitos Previos
 
 - Git
 - Docker Desktop con Docker Compose
 
-No es necesario instalar Python, Django, GDAL ni PostgreSQL en Windows si se utiliza Docker.
+No es necesario instalar Python, Django, GDAL ni PostgreSQL localmente, ya que la contenerización proporciona y aísla estas dependencias.
 
-## Instalacion
+## 4. Guía de Instalación y Despliegue Local
 
 ### 1. Clonar el repositorio
 
@@ -231,7 +230,141 @@ después de `migrate`.
 Tras cambiar variables de Stripe o Compose, recrea los servicios para que reciban los
 nuevos valores: `docker compose up -d --force-recreate web order_cleanup`.
 
-## Pedidos, pagos y stock
+## 5. Carga de Datos de Demostración (Seed)
+
+Después de levantar Docker y aplicar las migraciones, la fixture completa se prepara con:
+
+```bash
+docker compose exec web python manage.py seed_demo
+```
+
+El comando sincroniza 11 usuarios, 8 tiendas, 24 productos de las ocho categorías,
+5 pedidos coherentes, un carrito, dos favoritos y visitas históricas. Todos los datos y
+direcciones son ficticios.
+
+### Usuarios
+
+Las cuentas que se creen por primera vez reciben la contraseña
+**`DemoDistans2026!`**. Repetir el seed conserva una contraseña que se haya cambiado:
+
+| Acceso | Email |
+| --- | --- |
+| Administrador | `admin@demo.example.com` |
+| Comprador | `comprador@demo.example.com` |
+| Segundo comprador | `comprador2@demo.example.com` |
+| Vendedor Premium: librería | `libreria@demo.example.com` |
+| Vendedor Premium: tecnología | `tecnologia@demo.example.com` |
+| Vendedor Freemium: jardín | `jardin@demo.example.com` |
+| Vendedor Premium: mercado | `mercado@demo.example.com` |
+| Vendedor Freemium: hogar | `hogar@demo.example.com` |
+| Vendedor Premium: Triana, Sevilla | `sevilla-triana@demo.example.com` |
+| Vendedor Premium: Centro, Sevilla | `sevilla-centro@demo.example.com` |
+| Vendedor Freemium: Nervión, Sevilla | `sevilla-nervion@demo.example.com` |
+
+Los vendedores tienen `rol=vendedor`; los dos compradores, `rol=comprador`; y el
+administrador tiene `rol=admin`, `is_staff=True` e `is_superuser=True`. Todos incluyen
+nombre, apellidos, teléfono `600123123`, dirección `Calle Demo 10` y código postal
+`28001`, excepto las cuentas de Sevilla, que utilizan `41001`.
+
+### Tiendas
+
+| Tienda | Vendedor | Ciudad y dirección | Coordenadas | Plan |
+| --- | --- | --- | --- | --- |
+| Librería Horizonte Demo | `libreria@demo.example.com` | Madrid, Calle Demo 1 | 40.416800, -3.703800 | Premium |
+| Tecnología Centro Demo | `tecnologia@demo.example.com` | Madrid, Calle Demo 2 | 40.420000, -3.700000 | Premium |
+| Jardín del Barrio Demo | `jardin@demo.example.com` | Madrid, Calle Demo 3 | 40.430000, -3.710000 | Freemium |
+| Mercado Artesano Demo | `mercado@demo.example.com` | Madrid, Calle Demo 4 | 40.460000, -3.690000 | Premium |
+| Hogar Alcalá Demo | `hogar@demo.example.com` | Alcalá de Henares, Calle Demo 5 | 40.481000, -3.364000 | Freemium |
+| Artesanía Triana Demo | `sevilla-triana@demo.example.com` | Sevilla, Calle Demo Triana 1 | 37.383000, -6.003000 | Premium |
+| Librería Sevilla Centro Demo | `sevilla-centro@demo.example.com` | Sevilla, Calle Demo Centro 2 | 37.389100, -5.984500 | Premium |
+| Flores Nervión Demo | `sevilla-nervion@demo.example.com` | Sevilla, Calle Demo Nervión 3 | 37.382500, -5.970000 | Freemium |
+
+Todas utilizan un horario de lunes a viernes de 09:00 a 20:00. Las Premium tienen
+suscripción y pasarela activas solo para la demo local. No se inventan identificadores
+de Stripe: `stripe_subscription_id` y `premium_hasta` quedan vacíos y
+`fecha_renovacion=None` permite mantenerlas activas en este entorno. Las Freemium tienen
+suscripción y pasarela desactivadas.
+
+### Productos
+
+La columna «Stock final» refleja los pedidos creados por el propio seed. La novela parte
+de 25 unidades y termina con 22; los auriculares parten de 20 y terminan con 19 porque
+el pedido cancelado restaura su unidad.
+
+Todos usan la marca `DISTANS Demo`. Su descripción es el nombre seguido de «Producto
+ficticio para la demostración». Se marca como destacado uno de cada tres elementos
+(posiciones 1, 4, 7…, con índices internos 0, 3, 6…), tal como se indica en Estado.
+
+| Tienda | Producto | Categoría | Precio | Oferta | Stock final | Estado |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| Librería Horizonte | Novela de aventuras | Cultura y ocio | 18,00 € | 14,00 € | 22 | Disponible, destacado |
+| Librería Horizonte | Juego de mesa familiar | Cultura y ocio | 32,00 € | — | 12 | Disponible |
+| Librería Horizonte | Cuaderno de notas | Papelería y oficina | 6,50 € | — | 40 | Disponible |
+| Tecnología Centro | Auriculares inalámbricos | Tecnología y electrónica | 49,90 € | 39,90 € | 19 | Disponible, destacado |
+| Tecnología Centro | Teclado compacto | Tecnología y electrónica | 29,90 € | — | 10 | Disponible |
+| Tecnología Centro | Ratón agotado | Tecnología y electrónica | 15,00 € | — | 0 | Agotado |
+| Jardín del Barrio | Planta de interior | Floristería y jardinería | 12,00 € | — | 18 | Disponible, destacado |
+| Jardín del Barrio | Ramo de flores | Floristería y jardinería | 25,00 € | 20,00 € | 8 | Disponible |
+| Jardín del Barrio | Maceta de cerámica | Hogar y bricolaje | 9,50 € | — | 15 | Disponible |
+| Mercado Artesano | Cesta de productos artesanos | Alimentación y bebidas | 24,00 € | 21,00 € | 20 | Disponible, destacado |
+| Mercado Artesano | Bolsa de tela | Moda y complementos | 8,00 € | — | 30 | Disponible |
+| Mercado Artesano | Jabón artesanal | Salud y bienestar | 5,00 € | — | 35 | Disponible |
+| Hogar Alcalá | Lámpara de escritorio | Hogar y bricolaje | 35,00 € | — | 10 | Disponible, destacado |
+| Hogar Alcalá | Kit de herramientas | Hogar y bricolaje | 42,00 € | — | 7 | Disponible |
+| Hogar Alcalá | Organizador no disponible | Papelería y oficina | 11,00 € | — | 5 | No disponible |
+| Artesanía Triana | Azulejo decorativo | Hogar y bricolaje | 18,00 € | 15,00 € | 20 | Disponible, destacado |
+| Artesanía Triana | Abanico artesanal | Moda y complementos | 22,00 € | — | 15 | Disponible |
+| Artesanía Triana | Taza de cerámica sevillana | Hogar y bricolaje | 12,00 € | — | 25 | Disponible |
+| Librería Sevilla Centro | Guía de paseos por Sevilla | Cultura y ocio | 16,50 € | 13,50 € | 30 | Disponible, destacado |
+| Librería Sevilla Centro | Cuaderno ilustrado | Papelería y oficina | 7,50 € | — | 40 | Disponible |
+| Librería Sevilla Centro | Juego de cartas | Cultura y ocio | 9,00 € | — | 18 | Disponible |
+| Flores Nervión | Ramo de temporada | Floristería y jardinería | 28,00 € | 24,00 € | 12 | Disponible, destacado |
+| Flores Nervión | Planta aromática | Floristería y jardinería | 6,00 € | — | 20 | Disponible |
+| Flores Nervión | Jardinera de balcón | Hogar y bricolaje | 19,00 € | — | 10 | Disponible |
+
+### Imágenes predeterminadas
+
+Los datos demo no utilizan ilustraciones generadas ni imágenes externas. Siete de las
+ocho tiendas (87,5 %) y veinte de los veinticuatro productos (83,3 %) dejan el campo de
+imagen vacío para activar los fallbacks `static/img/default-store.png` y
+`static/img/default-product.png`. Los registros restantes referencian copias de esas
+mismas imágenes en `media/demo/`; por tanto, ninguna tienda o producto demo muestra una
+imagen distinta de las dos predeterminadas.
+
+### Pedidos, carrito, favoritos y visitas
+
+| Código | Comprador | Producto | Pago | Pedido | Subpedido | Línea |
+| --- | --- | --- | --- | --- | --- | --- |
+| `PED-DEMO-001` | Ana | Novela de aventuras | Contrarrembolso | En preparación | En preparación | Activa |
+| `PED-DEMO-002` | Luis | Novela de aventuras | Contrarrembolso | Enviado | Recogido | Activa |
+| `PED-DEMO-003` | Ana | Novela de aventuras | Contrarrembolso | Entregado | Recogido | Activa |
+| `PED-DEMO-004` | Luis | Auriculares inalámbricos | Pasarela ficticia pagada | En preparación | En preparación | Activa |
+| `PED-DEMO-005` | Ana | Auriculares inalámbricos | Pasarela ficticia cancelada | Cancelado | Cancelado | Cancelada |
+
+Cada pedido contiene una unidad y guarda el precio de oferta vigente como instantánea.
+Los importes incluyen un 21 % de impuestos y coste de entrega cero. Cada comprador usa
+sus propios datos de contacto y dirección. Los pedidos de pasarela son simulaciones
+locales: no se crea ninguna sesión de Stripe ni se realiza ningún cobro.
+
+El carrito de `comprador@demo.example.com` contiene dos unidades de «Juego de mesa
+familiar». Esa cuenta marca como favoritos «Novela de aventuras» y «Jardín del Barrio
+Demo». Cada producto recibe tres visitas históricas y cada tienda siete, distribuidas
+en los últimos días para alimentar las métricas del panel vendedor.
+
+La aplicación queda disponible en `http://localhost:8000`. Para comprobar el radio de
+búsqueda se puede seleccionar Madrid como ubicación (`40.416800`, `-3.703800`): cuatro tiendas están cerca del centro y otra
+en Alcalá de Henares, fuera de un radio de 5 km.
+También es posible seleccionar Sevilla (`37.389100`, `-5.984500`), donde se muestran tres tiendas
+en Centro, Triana y Nervión, con nueve productos de ejemplo.
+
+El comando es repetible: sincroniza perfiles, tiendas y productos; elimina y reconstruye
+exclusivamente `PED-DEMO-001` a `PED-DEMO-005`; restaura el inventario inicial antes de
+aplicar esos pedidos; y conserva las contraseñas modificadas. No elimina otros pedidos,
+usuarios o tiendas. Debe utilizarse solo en desarrollo porque restablece deliberadamente
+los datos de la fixture. Una compra completa con contrarrembolso puede probarse sin
+configurar Stripe; las pruebas reales de pagos y suscripciones requieren claves de test.
+
+## 6. Lógica de Negocio: Pedidos, Pagos y Stock
 
 La compra tiene tres pasos: datos del comprador, direcciones de envío y facturación,
 y método de pago. Los formularios validan datos personales, teléfono, direcciones y
@@ -293,7 +426,7 @@ Las líneas del pedido conservan nombre del producto, nombre de la tienda, preci
 cantidad y vínculo con la tienda aunque se elimine el producto. Los invitados consultan
 los pedidos vinculados a su sesión; conocer un código ajeno no concede acceso.
 
-## Planes de las tiendas
+### Planes de las tiendas
 
 | Plan | Comportamiento |
 | --- | --- |
@@ -311,7 +444,7 @@ Los administradores pueden configurar planes locales; la demo usa Premium local 
 identificadores ficticios de Stripe. Si una tienda local no tiene fecha de renovación,
 su vigencia no caduca por fecha.
 
-## Probar Stripe
+## 7. Integración con Stripe
 
 ### Recibir eventos en local
 
@@ -355,53 +488,7 @@ Stripe debe utilizarse en modo test. El pago mediante pasarela admite estos dato
 No deben utilizarse tarjetas reales. Las claves `pk_test_`, `sk_test_` y `whsec_` deben pertenecer a una cuenta de Stripe en modo test.
 Referencia: [tarjetas de prueba de Stripe](https://docs.stripe.com/testing#cards).
 
-## Arquitectura y datos
-
-El entorno Docker utiliza Python 3.11, Django 4.2, PostgreSQL 15 y PostGIS 3.4.
-`requirements.txt` declara las dependencias de Python, incluidas Pillow y Stripe.
-El Dockerfile instala las bibliotecas de GDAL y PROJ para GeoDjango.
-
-```text
-nucleo/       Configuración, rutas generales, WSGI y ASGI.
-users/        Usuarios, roles, cuenta, favoritos y comando seed_demo.
-stores/       Tiendas, planes, mapa y filtros geográficos.
-products/     Productos, catálogo, stock y panel del vendedor.
-carts/        Modelos de carrito, resumen compartido y limpieza de invitados.
-orders/       Checkout, pagos, pedidos y limpieza de reservas.
-templates/    Base HTML, cabecera, navegación y plantillas compartidas.
-scripts/      Bucles de mantenimiento ejecutados por Docker Compose.
-media/        Imágenes subidas y generadas para la demo; no se versiona.
-```
-
-Cada aplicación incluye sus modelos, vistas, formularios, rutas, migraciones y
-plantillas según sus responsabilidades. Actualmente las vistas de carrito están en
-`products/views.py`, aunque sus modelos y su plantilla pertenecen a `carts/`.
-
-```mermaid
-flowchart LR
-    N[Navegador] --> U[urls.py]
-    U --> V[views.py: permisos y lógica]
-    V <--> D[(PostgreSQL / PostGIS)]
-    V --> T[Template HTML]
-    T --> N
-    V <--> S[Stripe]
-    S --> W[Webhook firmado]
-    W --> D
-```
-
-Relaciones principales: vendedor → una tienda → muchos productos; comprador → un
-carrito → líneas con cantidad; usuario → pedidos → líneas con precios de la compra.
-Un pedido puede pertenecer a un usuario o ser de un invitado. Favoritos y visitas
-referencian productos o tiendas. El carrito del registrado utiliza líneas en la base
-de datos; el invitado guarda las líneas en su sesión y tiene un registro de carrito
-asociado a ella.
-
-Las credenciales y las tablas viven en PostgreSQL; las imágenes se guardan mediante
-el almacenamiento de Django y la base de datos conserva su ruta. Las migraciones
-versionadas crean y actualizan las tablas, pero no introducen automáticamente la demo.
-La interfaz está en español; la configuración actual de Django usa `en-us` y zona horaria UTC.
-
-## Ejecutar las pruebas
+## 8. Ejecución de Pruebas y Benchmarking
 
 La suite completa se ejecuta dentro del contenedor para disponer de PostGIS y GDAL:
 
@@ -597,7 +684,7 @@ reducido exclusivamente para pruebas. La prueba de compras simultáneas se omite
 SQLite porque necesita los bloqueos de filas de PostgreSQL. No utilices
 `settings_test` para ejecutar la aplicación con datos de usuarios.
 
-## Comandos utiles
+## 9. Comandos de Administración Útiles
 
 Ver los logs de Django:
 
@@ -655,7 +742,26 @@ docker compose up -d --build
 docker compose exec web python manage.py migrate
 ```
 
-## Problemas frecuentes
+### Restablecer la contraseña mediante Mailpit
+
+El restablecimiento se inicia mediante **He olvidado mi contraseña** en la pantalla de
+acceso. Se introduce el correo de una cuenta activa y se envía la solicitud. En el entorno Docker de desarrollo, los correos
+no se envían a una dirección real: Mailpit los captura de forma local. La bandeja está
+disponible en `http://localhost:8025`; el enlace del mensaje recibido permite elegir
+una contraseña nueva. La propia pantalla de confirmación también ofrece acceso directo
+a esta bandeja cuando `DEBUG=True`.
+
+Si Mailpit todavía no está iniciado, es necesario recrear los servicios después de
+descargar los cambios:
+
+```bash
+docker compose up -d --build
+```
+
+En producción debe configurarse un servidor SMTP mediante las variables `EMAIL_*` y
+desactivarse `DEBUG`; el acceso a la bandeja local no se mostrará.
+
+## 10. Resolución de Problemas (FAQ)
 
 | Problema | Comprobación o solución |
 | --- | --- |
@@ -676,19 +782,7 @@ La demo genera imágenes sin internet, pero el fondo del mapa, Leaflet desde CDN
 pagos de Stripe necesitan acceso a servicios externos. Referencia para el mapa:
 [política de uso de imágenes de OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/).
 
-## Alcance actual
-
-Docker Compose ejecuta el servidor de desarrollo `runserver`; este entorno está
-preparado para desarrollar y evaluar el TFG, no constituye un despliegue de producción.
-Un despliegue público requiere configurar servidor de aplicación, HTTPS, secretos,
-hosts y servicio de archivos estáticos y media.
-
-Los pedidos tienen un estado global aunque incluyan productos de varias tiendas;
-no existe todavía seguimiento independiente de cada envío, integración con repartidores
-ni registro del cobro en persona. Las renovaciones Premium se reflejan mediante Stripe,
-y los reembolsos online se gestionan manualmente fuera de la aplicación.
-
-## Detener el proyecto
+## 11. Detener el Proyecto y Limpiar Datos
 
 ```bash
 docker compose down
