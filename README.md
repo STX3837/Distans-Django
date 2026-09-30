@@ -523,10 +523,14 @@ la raíz del repositorio.
 La aplicación y el conjunto de datos reproducible se preparan con:
 
 ```powershell
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.load.yml up -d --build
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py seed_demo
 ```
+
+El segundo archivo de Compose sustituye `runserver` por Gunicorn con tres workers
+exclusivamente para estas pruebas. El arranque habitual con `docker compose up` sigue
+utilizando el servidor de desarrollo y no cambia el funcionamiento de la aplicación.
 
 Antes de continuar, `http://localhost:8000` debe responder. `seed_demo` proporciona
 los productos, tiendas, pedidos y cuentas que necesitan los perfiles autenticados.
